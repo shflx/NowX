@@ -1,0 +1,14 @@
+# DOMAIN 为域名时 Caddy 自动申请 HTTPS 证书；内网部署可设为 :80 使用 HTTP
+{$DOMAIN} {
+	encode zstd gzip
+
+	# 单个材料文件最大 100 MB，略放宽请求体限制
+	request_body {
+		max_size 110MB
+	}
+
+	reverse_proxy app:3000 {
+		# 服务端事件流（SSE）需要立即转发，不能缓冲
+		flush_interval -1
+	}
+}

@@ -26,6 +26,7 @@ next-env.d.ts
 # 环境变量（.env.example 需要提交）
 .env*
 !.env.example
+!.env.production.example
 
 # 调试与系统文件
 .DS_Store
