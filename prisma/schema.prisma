@@ -1,0 +1,416 @@
+// NowX 数据模型
+// 约定：
+// - 主键统一使用 cuid；业务编号（任务 CRM-12、需求 R-3）由项目内自增序号生成
+// - 日期型字段（周期起止、截止日期）使用 @db.Date，按 APP_TIMEZONE 解释
+// - 项目是顶层容器，除账号与会话外的业务数据都归属于某个项目
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- 账号与会话
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+model User {
+  id                 String     @id @default(cuid())
+  login              String     @unique
+  name               String
+  title              String     @default("")
+  role               UserRole   @default(MEMBER)
+  status             UserStatus @default(ACTIVE)
+  passwordHash       String
+  /// 管理员创建或重置密码后为 true，首次登录需修改密码
+  mustChangePassword Boolean    @default(true)
+  /// 头像底色
+  color              String
+  lastLoginAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  sessions           Session[]
+  memberships        ProjectMember[]
+  assignedTasks      Task[]          @relation("TaskAssignee")
+  createdTasks       Task[]          @relation("TaskCreator")
+  ownedRequirements  Requirement[]
+  comments           TaskComment[]
+  topics             Topic[]         @relation("TopicAuthor")
+  assignedTopics     Topic[]         @relation("TopicAssignee")
+  replies            Reply[]
+  materials          Material[]
+  announcements      Announcement[]
+  notifications      Notification[]
+  activities         Activity[]
+}
+
+/// 数据库会话：Cookie 中保存随机令牌，库中只保存令牌的 SHA-256 摘要
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- 项目
+
+model Project {
+  id             String    @id @default(cuid())
+  /// 任务编号前缀，如 CRM；创建后不可修改
+  key            String    @unique
+  name           String
+  description    String    @default("")
+  color          String
+  archivedAt     DateTime?
+  /// 项目内任务编号序列
+  taskSeq        Int       @default(0)
+  /// 项目内需求编号序列
+  requirementSeq Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  members       ProjectMember[]
+  cycles        Cycle[]
+  requirements  Requirement[]
+  tasks         Task[]
+  topics        Topic[]
+  materials     Material[]
+  tags          Tag[]
+  announcements Announcement[]
+  activities    Activity[]
+}
+
+model ProjectMember {
+  projectId String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- 周期
+
+enum CycleStatus {
+  PLANNED
+  ACTIVE
+  ENDED
+}
+
+/// 同一项目同时最多一个 ACTIVE 周期（迁移中通过部分唯一索引保证）
+model Cycle {
+  id        String      @id @default(cuid())
+  projectId String
+  name      String
+  startDate DateTime    @db.Date
+  endDate   DateTime    @db.Date
+  status    CycleStatus @default(PLANNED)
+  goal      String      @default("")
+  startedAt DateTime?
+  endedAt   DateTime?
+  createdAt DateTime    @default(now())
+
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks        Task[]  @relation("TaskCycle")
+  carriedTasks Task[]  @relation("TaskCarriedFrom")
+
+  @@index([projectId, startDate])
+}
+
+// ---------------------------------------------------------------- 需求
+
+enum RequirementStatus {
+  BACKLOG
+  DESIGN
+  DEVELOPING
+  DELIVERED
+}
+
+model Requirement {
+  id        String            @id @default(cuid())
+  projectId String
+  /// 项目内编号，展示为 R-{number}
+  number    Int
+  title     String
+  summary   String            @default("")
+  status    RequirementStatus @default(BACKLOG)
+  ownerId   String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner     User?            @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  docs      RequirementDoc[]
+  tasks     Task[]
+  topics    Topic[]
+  materials Material[]
+
+  @@unique([projectId, number])
+}
+
+enum DocType {
+  FEISHU
+  TENCENT
+  FIGMA
+  APIFOX
+  OTHER
+}
+
+/// 需求的外部文档链接（需求原文保存在飞书 / 腾讯文档，这里只记录链接）
+model RequirementDoc {
+  id            String  @id @default(cuid())
+  requirementId String
+  type          DocType
+  name          String
+  url           String
+  sort          Int     @default(0)
+
+  requirement Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@index([requirementId])
+}
+
+// ---------------------------------------------------------------- 任务
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELED
+}
+
+enum TaskPriority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model Task {
+  id                 String       @id @default(cuid())
+  projectId          String
+  /// 项目内编号，展示为 {project.key}-{number}
+  number             Int
+  title              String
+  description        String       @default("")
+  status             TaskStatus   @default(TODO)
+  priority           TaskPriority @default(MEDIUM)
+  assigneeId         String?
+  dueDate            DateTime?    @db.Date
+  cycleId            String?
+  requirementId      String?
+  /// 只支持一层子任务
+  parentId           String?
+  /// 结束周期时被顺延出来的任务，记录来源周期
+  carriedFromCycleId String?
+  completedAt        DateTime?
+  creatorId          String
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee    User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creator     User          @relation("TaskCreator", fields: [creatorId], references: [id])
+  cycle       Cycle?        @relation("TaskCycle", fields: [cycleId], references: [id], onDelete: SetNull)
+  carriedFrom Cycle?        @relation("TaskCarriedFrom", fields: [carriedFromCycleId], references: [id], onDelete: SetNull)
+  requirement Requirement?  @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  parent      Task?         @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks    Task[]        @relation("Subtasks")
+  comments    TaskComment[]
+  topics      Topic[]
+
+  @@unique([projectId, number])
+  @@index([cycleId])
+  @@index([assigneeId, status])
+  @@index([requirementId])
+  @@index([parentId])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([taskId, createdAt])
+}
+
+// ---------------------------------------------------------------- 交流区
+
+enum TopicStatus {
+  OPEN
+  SOLVED
+  CLOSED
+}
+
+model Topic {
+  id             String      @id @default(cuid())
+  projectId      String
+  title          String
+  body           String
+  authorId       String
+  /// 希望由谁回答（可选）
+  assigneeId     String?
+  status         TopicStatus @default(OPEN)
+  isFaq          Boolean     @default(false)
+  taskId         String?
+  requirementId  String?
+  viewCount      Int         @default(0)
+  lastActivityAt DateTime    @default(now())
+  createdAt      DateTime    @default(now())
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author      User         @relation("TopicAuthor", fields: [authorId], references: [id])
+  assignee    User?        @relation("TopicAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  task        Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  requirement Requirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  replies     Reply[]
+
+  @@index([projectId, lastActivityAt])
+  @@index([assigneeId, status])
+}
+
+model Reply {
+  id          String   @id @default(cuid())
+  topicId     String
+  /// 项目助手的回复没有作者
+  authorId    String?
+  isAssistant Boolean  @default(false)
+  body        String
+  isAccepted  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  topic  Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [authorId], references: [id])
+
+  @@index([topicId, createdAt])
+}
+
+// ---------------------------------------------------------------- 材料库
+
+enum MaterialKind {
+  FILE
+  LINK
+}
+
+model Material {
+  id            String       @id @default(cuid())
+  projectId     String
+  kind          MaterialKind
+  name          String
+  /// LINK：外部地址
+  url           String?
+  /// LINK：自动识别的文档类型
+  docType       DocType?
+  /// FILE：存储层中的相对路径
+  storageKey    String?
+  fileSize      Int?
+  mimeType      String?
+  requirementId String?
+  uploaderId    String
+  createdAt     DateTime     @default(now())
+
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requirement Requirement?  @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  uploader    User          @relation(fields: [uploaderId], references: [id])
+  tags        MaterialTag[]
+
+  @@index([projectId, createdAt])
+}
+
+/// 材料标签：项目内共享，成员可自行创建
+model Tag {
+  id        String @id @default(cuid())
+  projectId String
+  name      String
+  color     String
+
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  materials MaterialTag[]
+
+  @@unique([projectId, name])
+}
+
+model MaterialTag {
+  materialId String
+  tagId      String
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([materialId, tagId])
+  @@index([tagId])
+}
+
+// ---------------------------------------------------------------- 公告、通知、动态
+
+model Announcement {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  body      String
+  pinned    Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@index([projectId, pinned, createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  /// 已渲染好的通知文案（纯文本）
+  text      String
+  /// 站内跳转地址
+  href      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  projectId String
+  actorId   String
+  /// 动作描述，如「完成了任务」
+  verb      String
+  /// 对象描述，如「CRM-22 修复：客户详情页偶发白屏」
+  target    String
+  href      String?
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor   User    @relation(fields: [actorId], references: [id])
+
+  @@index([projectId, createdAt])
+}
