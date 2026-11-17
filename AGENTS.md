@@ -1,0 +1,42 @@
+# 开发规范
+
+## 编码哲学
+
+- 在合适的尺度上构建抽象
+- 简单优于复杂
+- 清晰优于繁琐
+
+## 代码编写原则
+
+- 有效抽象，职责分明，让代码位于合适的位置
+- 注释清晰：编写人类审查友好、理解友好的中文注释信息
+- 遵循社区最佳实践：存在多种实现方式时，选择技术社区的最佳实现方式实现
+- 优先遵循项目已有实现范式
+
+## 编码实践技巧
+
+- 适当空行，让代码更清晰、内聚
+
+## 项目约束写入规则
+
+- `PROJECT_CONSTRAINTS.md` 只记录长期有效、跨模块且容易被破坏的边界；普通功能开发不必新增条目。
+- 写入前检查已有规则，优先合并、修订或删除过时表述，避免重复追加；每条简短说明要保护什么。
+- UI 布局、文案、普通配置值、接口细节、修复过程和进度记录不写入项目约束。
+- 以已确认的决策和真实实现为依据，不把计划写成现状；精简文字不得隐式放宽权限、验收或恢复保护。
+
+## 代码提交原则
+
+- 遵循convention commit规范，提交信息的标题描述和正文使用中文，保留 Conventional Commit 的类型前缀及必要的技术标识，同时适当补充body对变更进行补充说明。
+- 按逻辑单元拆分提交，每次提交的改动应紧密关联且完整，避免将无关改动混在同一次提交中。
+- 提交内容及提交信息仅包含与项目实际改动相关的信息，不加入外部任务编号、执行流程记录或 Agent 分工、测试结果等非变更内容。
+- 项目约束随对应代码一起提交，不单独提交；必要时使用 amend 合并。
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
