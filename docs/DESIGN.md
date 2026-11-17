@@ -28,18 +28,18 @@
 - PostgreSQL + Prisma（`schema.prisma` 即完整数据模型）
 - Tailwind CSS + shadcn/ui
 - Zod 做前后端共享校验
-- 自实现 Session 认证（bcrypt + sessions 表）
+- 自实现数据库会话认证（Argon2id 密码哈希；Cookie 存随机令牌，库中只存摘要）
 - SSE 做实时刷新
 - 文件存储：先本地磁盘，接口抽象，后续可切 OSS
 - 测试：Vitest + Playwright（关键流程）
-- 根目录维护 `CLAUDE.md`，写明目录结构、约定、常用命令
+- 根目录 `AGENTS.md` 为开发规范，`README.md` 写明目录结构、约定与常用命令
 
 ## 4. 数据模型（概要）
 
 ```
 User            账号：登录名、姓名、职能、平台角色(admin/member)、状态(正常/停用)、是否需改密、最近登录
 Project         项目：名称、Key(如 CRM)、描述、归档状态
-ProjectMember   项目成员：项目、用户、项目内角色(owner/member)
+ProjectMember   项目成员：项目、用户（项目管理统一由平台管理员负责）
 Cycle           周期：项目、名称、开始/结束日期、状态(计划中/进行中/已结束)
 Requirement     需求：项目、编号、标题、外部文档链接[]、说明、负责人、状态
 Task            任务：项目、编号、标题、描述(Markdown)、状态、优先级、负责人、
@@ -80,21 +80,18 @@ Activity        操作日志
 
 - 入口：顶栏按钮打开右侧对话面板；交流区可 @助手。
 - 作用范围：当前登录用户 + 当前项目，**只读**。
-- 实现思路：大模型 + 工具调用（tool use），工具均为只读查询，按当前用户权限过滤：
-  - `list_my_tasks(status?, cycle?)`
-  - `list_overdue_tasks()`
-  - `get_cycle_progress(cycle?)`
-  - `get_requirement_breakdown(requirement)`
-  - `list_topics_waiting_for(user)`
-  - `search_faq(query)`
+- 实现：Claude API（`claude-opus-5-5`，低思考强度）+ SDK Tool Runner，工具均为只读查询，范围固定为当前项目：
+  - `list_tasks`（按负责人 / 状态 / 周期）、`get_cycle_progress`、`get_requirement`
+  - `list_topics`、`read_topic`、`search_project`、`list_members`
+- 未配置 `ANTHROPIC_API_KEY` 时助手入口提示不可用，其余功能不受影响；每人每 10 分钟最多 30 次提问。
 - 回答中引用的任务 / 帖子可点击跳转。
 - 发帖时根据标题推荐相似 FAQ，减少重复提问。
 
-## 7. 分期
+## 7. 实现状态
 
-- 第一期：登录与账号、项目与成员、周期、需求、任务（列表 + 看板 + 子任务 + 评论）、交流区
-- 第二期：材料库、公告、站内通知、SSE 实时刷新、项目助手
-- 第三期：周期报表与回顾、FAQ 汇总、全文搜索、部署脚本完善
+以上功能均已实现（含周期回顾、FAQ 精选、项目内搜索、Docker Compose 部署）。已知限制：
+- SSE 事件总线与登录限流在进程内实现，只支持单实例部署
+- 文件存储为本地磁盘（`STORAGE_DIR`），尚未接入对象存储
 
 ## 8. 原型
 
