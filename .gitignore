@@ -1,0 +1,37 @@
+# 依赖
+/node_modules
+/.pnp
+.pnp.*
+
+# 测试
+/coverage
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
+
+# Next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# Prisma 生成的客户端
+/src/generated
+
+# 本地上传文件
+/storage
+
+# 环境变量（.env.example 需要提交）
+.env*
+!.env.example
+
+# 调试与系统文件
+.DS_Store
+*.pem
+npm-debug.log*
+.pnpm-debug.log*
+
+# 静态 UI 原型（仅本地参考）
+/prototypes

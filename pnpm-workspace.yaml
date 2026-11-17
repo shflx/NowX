@@ -1,0 +1,8 @@
+# pnpm 10 默认禁止依赖的构建脚本，这里显式列出允许 / 忽略的包
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - prisma
+  - esbuild
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
