@@ -41,19 +41,19 @@ model User {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
-  sessions           Session[]
-  memberships        ProjectMember[]
-  assignedTasks      Task[]          @relation("TaskAssignee")
-  createdTasks       Task[]          @relation("TaskCreator")
-  ownedRequirements  Requirement[]
-  comments           TaskComment[]
-  topics             Topic[]         @relation("TopicAuthor")
-  assignedTopics     Topic[]         @relation("TopicAssignee")
-  replies            Reply[]
-  materials          Material[]
-  announcements      Announcement[]
-  notifications      Notification[]
-  activities         Activity[]
+  sessions          Session[]
+  memberships       ProjectMember[]
+  assignedTasks     Task[]          @relation("TaskAssignee")
+  createdTasks      Task[]          @relation("TaskCreator")
+  ownedRequirements Requirement[]
+  comments          TaskComment[]
+  topics            Topic[]         @relation("TopicAuthor")
+  assignedTopics    Topic[]         @relation("TopicAssignee")
+  replies           Reply[]
+  materials         Material[]
+  announcements     Announcement[]
+  notifications     Notification[]
+  activities        Activity[]
 }
 
 /// 数据库会话：Cookie 中保存随机令牌，库中只保存令牌的 SHA-256 摘要
@@ -129,9 +129,11 @@ model Cycle {
   endedAt   DateTime?
   createdAt DateTime    @default(now())
 
-  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks        Task[]  @relation("TaskCycle")
-  carriedTasks Task[]  @relation("TaskCarriedFrom")
+  project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks               Task[]        @relation("TaskCycle")
+  carriedTasks        Task[]        @relation("TaskCarriedFrom")
+  requirements        Requirement[] @relation("RequirementCycle")
+  carriedRequirements Requirement[] @relation("RequirementCarriedFrom")
 
   @@index([projectId, startDate])
 }
@@ -146,25 +148,32 @@ enum RequirementStatus {
 }
 
 model Requirement {
-  id        String            @id @default(cuid())
-  projectId String
+  id                 String            @id @default(cuid())
+  projectId          String
   /// 项目内编号，展示为 R-{number}
-  number    Int
-  title     String
-  summary   String            @default("")
-  status    RequirementStatus @default(BACKLOG)
-  ownerId   String?
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  number             Int
+  title              String
+  summary            String            @default("")
+  status             RequirementStatus @default(BACKLOG)
+  ownerId            String?
+  /// 计划交付周期；为空表示待排期。需求下的任务可以分布在更早的周期（前置工作）
+  cycleId            String?
+  /// 最近一次从哪个周期顺延而来（结束周期或手动移动时记录）
+  carriedFromCycleId String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
-  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  owner     User?            @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  docs      RequirementDoc[]
-  tasks     Task[]
-  topics    Topic[]
-  materials Material[]
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner       User?            @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  cycle       Cycle?           @relation("RequirementCycle", fields: [cycleId], references: [id], onDelete: SetNull)
+  carriedFrom Cycle?           @relation("RequirementCarriedFrom", fields: [carriedFromCycleId], references: [id], onDelete: SetNull)
+  docs        RequirementDoc[]
+  tasks       Task[]
+  topics      Topic[]
+  materials   Material[]
 
   @@unique([projectId, number])
+  @@index([cycleId])
 }
 
 enum DocType {
@@ -369,7 +378,7 @@ model MaterialTag {
 // ---------------------------------------------------------------- 公告、通知、动态
 
 model Announcement {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   projectId String
   title     String
   body      String

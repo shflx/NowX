@@ -15,4 +15,6 @@ export const endCycleSchema = z.object({
   /** 未完成任务顺延到的周期；为空表示放回待规划 */
   targetCycleId: z.string().nullable(),
   startTarget: z.boolean().default(false),
+  /** 随周期顺延的需求（未勾选的需求留在本周期） */
+  requirementIds: z.array(z.string()).default([]),
 });

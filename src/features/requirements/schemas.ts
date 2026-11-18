@@ -12,3 +12,15 @@ export const requirementSchema = z.object({
   ownerId: z.string().nullable(),
   docs: z.array(docLinkSchema).max(10, "最多 10 个外部链接").default([]),
 });
+
+/** 新建需求时可以直接排入周期；之后通过「调整周期」移动 */
+export const createRequirementSchema = requirementSchema.extend({
+  cycleId: z.string().min(1).nullable().default(null),
+});
+
+export const moveRequirementSchema = z.object({
+  /** 目标周期；null 表示移回待排期 */
+  cycleId: z.string().min(1).nullable(),
+  /** 是否同时移动原周期中未完成的任务 */
+  moveTasks: z.boolean().default(true),
+});

@@ -94,7 +94,7 @@ export async function endCycle(cycleId: string, input: unknown) {
   return runAction(async () => {
     const { cycle, user, project } = await loadCycle(cycleId);
     if (cycle.status !== "ACTIVE") throw new ActionError("只有进行中的周期可以结束");
-    const { targetCycleId, startTarget } = parseInput(endCycleSchema, input);
+    const { targetCycleId, startTarget, requirementIds } = parseInput(endCycleSchema, input);
 
     const target = targetCycleId ? await db.cycle.findUnique({ where: { id: targetCycleId } }) : null;
     if (targetCycleId && (!target || target.projectId !== cycle.projectId || target.status !== "PLANNED")) {
@@ -102,6 +102,13 @@ export async function endCycle(cycleId: string, input: unknown) {
     }
 
     const moved = await db.$transaction(async (tx) => {
+      // 未交付的需求随周期顺延（只处理确实属于本周期的需求）
+      const { count: movedRequirements } = await tx.requirement.updateMany({
+        where: { id: { in: requirementIds }, cycleId, status: { not: "DELIVERED" } },
+        data: { cycleId: target?.id ?? null, carriedFromCycleId: cycleId },
+      });
+
+      // 未完成的任务全部移出，避免遗留在已结束的周期里
       const unfinished = await tx.task.findMany({
         where: { cycleId, parentId: null, status: { in: ["TODO", "IN_PROGRESS", "IN_REVIEW"] } },
         select: { id: true },
@@ -120,12 +127,12 @@ export async function endCycle(cycleId: string, input: unknown) {
         { projectId: project.id, actorId: user.id, verb: "结束了周期", target: cycle.name, href: `/projects/${project.key}/cycles?cycle=${cycle.id}` },
         tx,
       );
-      return ids.length;
+      return { tasks: ids.length, requirements: movedRequirements };
     });
 
     publishProjectChange(cycle.projectId);
     refresh();
-    return { moved, targetName: target?.name ?? null, started: Boolean(target && startTarget) };
+    return { moved: moved.tasks, movedRequirements: moved.requirements, targetName: target?.name ?? null, started: Boolean(target && startTarget) };
   });
 }
 
