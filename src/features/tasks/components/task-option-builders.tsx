@@ -6,9 +6,9 @@ import { requirementCode } from "@/lib/format";
 
 import type { CycleLite, RequirementLite } from "./types";
 
-export function cycleOptions(cycles: CycleLite[]): Option[] {
+export function cycleOptions(cycles: CycleLite[], noneLabel = "待规划（不放入周期）"): Option[] {
   return [
-    { value: NONE, label: "待规划", render: <span className="text-muted-foreground">待规划（不放入周期）</span> },
+    { value: NONE, label: noneLabel, render: <span className="text-muted-foreground">{noneLabel}</span> },
     ...cycles
       .filter((c) => c.status !== "ENDED")
       .map((c) => ({

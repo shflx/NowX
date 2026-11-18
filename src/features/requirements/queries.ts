@@ -10,6 +10,8 @@ export async function listRequirements(projectId: string) {
     orderBy: { number: "desc" },
     include: {
       owner: { select: { id: true, name: true, color: true } },
+      cycle: { select: { id: true, name: true, status: true, startDate: true, endDate: true } },
+      carriedFrom: { select: { name: true } },
       docs: { orderBy: { sort: "asc" } },
       tasks: taskProgressSelect,
     },
@@ -22,6 +24,8 @@ export async function getRequirement(projectId: string, number: number) {
     where: { projectId_number: { projectId, number } },
     include: {
       owner: { select: { id: true, name: true, color: true } },
+      cycle: { select: { id: true, name: true, status: true, startDate: true, endDate: true } },
+      carriedFrom: { select: { name: true } },
       docs: { orderBy: { sort: "asc" } },
       tasks: {
         where: { parentId: null },
@@ -32,7 +36,8 @@ export async function getRequirement(projectId: string, number: number) {
           title: true,
           status: true,
           assignee: { select: { id: true, name: true, color: true } },
-          cycle: { select: { name: true } },
+          cycleId: true,
+          cycle: { select: { name: true, startDate: true } },
           _count: { select: { subtasks: true } },
         },
       },

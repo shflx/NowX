@@ -19,11 +19,13 @@ import { listTags } from "@/features/materials/queries";
 import { AddMaterialButton } from "@/features/materials/components/add-material-button";
 import { MaterialIcon, materialHref } from "@/features/materials/components/material-icon";
 import { EditRequirementButton } from "@/features/requirements/components/requirement-buttons";
+import { DeliveredHint, MoveRequirementButton } from "@/features/requirements/components/requirement-cycle-controls";
 import { RequirementStatusBadge } from "@/features/requirements/components/requirement-status-badge";
 import { getRequirement } from "@/features/requirements/queries";
 import { loadTaskFormOptions } from "@/features/tasks/form-options";
 import { NewTaskButton } from "@/features/tasks/components/task-form-dialog";
 import { BOARD_STATUSES } from "@/lib/constants";
+import { formatMonthDay, toDateString } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
 import { isAdmin } from "@/server/auth/dal";
 import { requireProjectByKey } from "@/server/permissions";
@@ -40,6 +42,12 @@ export default async function RequirementPage({ params }: PageProps<"/projects/[
   if (!requirement) notFound();
 
   const code = requirementCode(requirement.number);
+  const cycle = requirement.cycle;
+  const OPEN = ["TODO", "IN_PROGRESS", "IN_REVIEW"];
+  const unfinishedInCycle = requirement.tasks.filter((t) => t.cycleId === requirement.cycleId && OPEN.includes(t.status)).length;
+  // 任务排在交付周期之后，意味着赶不上交付，需要提示
+  const lateTask = (t: (typeof requirement.tasks)[number]) =>
+    Boolean(cycle && t.cycle && OPEN.includes(t.status) && t.cycle.startDate > cycle.startDate);
   const canDelete = (requirement.ownerId === user.id || isAdmin(user)) && requirement.tasks.length === 0;
 
   return (
@@ -49,12 +57,21 @@ export default async function RequirementPage({ params }: PageProps<"/projects/[
           <>
             <span className="text-sm text-muted-foreground tabular-nums">{code}</span>
             <RequirementStatusBadge status={requirement.status} />
+            {requirement.carriedFrom && <StatusBadge tone="warn">由「{requirement.carriedFrom.name}」顺延</StatusBadge>}
           </>
         }
         title={requirement.title}
         description={
           <>
-            负责人 {requirement.owner?.name ?? "未指定"} · 已拆解 {requirement.taskCount} 个任务，完成 {requirement.percent}%
+            计划交付：
+            {cycle ? (
+              <Link href={`/projects/${project.key}/cycles?cycle=${cycle.id}`} className="text-accent-text hover:underline">
+                {cycle.name}（{formatMonthDay(toDateString(cycle.startDate))}–{formatMonthDay(toDateString(cycle.endDate))}）
+              </Link>
+            ) : (
+              "待排期"
+            )}{" "}
+            · 负责人 {requirement.owner?.name ?? "未指定"} · 已拆解 {requirement.taskCount} 个任务，完成 {requirement.percent}%
           </>
         }
         actions={
@@ -62,6 +79,11 @@ export default async function RequirementPage({ params }: PageProps<"/projects/[
             <Button variant="outline" asChild>
               <Link href={`/projects/${project.key}/requirements`}>返回列表</Link>
             </Button>
+            <MoveRequirementButton
+              requirement={{ id: requirement.id, code, cycleId: requirement.cycleId, cycleName: cycle?.name ?? null }}
+              cycles={options.cycles}
+              unfinishedInCycle={unfinishedInCycle}
+            />
             <EditRequirementButton
               projectId={project.id}
               projectKey={project.key}
@@ -82,6 +104,9 @@ export default async function RequirementPage({ params }: PageProps<"/projects/[
           </>
         }
       />
+      {requirement.taskCount > 0 && requirement.percent === 100 && requirement.status !== "DELIVERED" && (
+        <DeliveredHint requirementId={requirement.id} />
+      )}
       <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-4">
         <div className="flex flex-col gap-4">
           <SectionCard title="需求摘要" extra={<span className="text-xs text-muted-foreground">完整内容以外部文档为准</span>}>
@@ -103,6 +128,7 @@ export default async function RequirementPage({ params }: PageProps<"/projects/[
                 <span className="text-xs text-muted-foreground tabular-nums">{taskCode(project.key, t.number)}</span>
                 <span className="flex-1 truncate">{t.title}</span>
                 {t._count.subtasks > 0 && <span className="text-xs text-muted-foreground">{t._count.subtasks} 个子任务</span>}
+                {lateTask(t) && <StatusBadge tone="warn">晚于交付周期</StatusBadge>}
                 <StatusBadge>{t.cycle?.name ?? "待规划"}</StatusBadge>
                 {t.assignee && <UserAvatar user={t.assignee} size="sm" />}
               </Link>

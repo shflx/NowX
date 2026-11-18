@@ -16,6 +16,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import type { DocType, RequirementStatus } from "@/generated/prisma/enums";
 import { uploadMaterialFile } from "@/features/materials/upload";
+import { cycleOptions } from "@/features/tasks/components/task-option-builders";
+import type { CycleLite } from "@/features/tasks/components/types";
 import { useAction } from "@/hooks/use-action";
 import { detectDocType, MAX_UPLOAD_BYTES, REQUIREMENT_STATUS_LABEL } from "@/lib/constants";
 import { formatFileSize } from "@/lib/format";
@@ -42,17 +44,20 @@ type Props = {
   requirement?: EditableRequirement;
   /** 新建时展示的预计编号 */
   nextCode?: string;
+  /** 新建时可选的计划交付周期（编辑时通过详情页「调整周期」修改） */
+  cycles?: CycleLite[];
   currentUserId: string;
   onClose: () => void;
 };
 
 type DocRow = { key: number; url: string; name: string };
 
-export function RequirementFormDialog({ projectId, projectKey, members, requirement, nextCode, currentUserId, onClose }: Props) {
+export function RequirementFormDialog({ projectId, projectKey, members, requirement, nextCode, cycles = [], currentUserId, onClose }: Props) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string>(requirement?.status ?? "BACKLOG");
   const [ownerId, setOwnerId] = useState(requirement?.ownerId ?? currentUserId);
+  const [cycleId, setCycleId] = useState(NONE);
   const [docs, setDocs] = useState<DocRow[]>(
     requirement?.docs.length ? requirement.docs.map((d, key) => ({ key, url: d.url, name: d.name })) : [{ key: 0, url: "", name: "" }],
   );
@@ -80,7 +85,7 @@ export function RequirementFormDialog({ projectId, projectKey, members, requirem
       return;
     }
 
-    const result = await create.run(input);
+    const result = await create.run({ ...input, cycleId: orNull(cycleId) });
     if (!result.ok) return;
 
     // 附件归档到材料库，并打上「需求规格」标签
@@ -124,7 +129,7 @@ export function RequirementFormDialog({ projectId, projectKey, members, requirem
               <Input id="req-title" name="title" defaultValue={requirement?.title} placeholder="例如：客户批量导入" autoFocus />
             </FormField>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={requirement ? "grid grid-cols-2 gap-3" : "grid grid-cols-3 gap-3"}>
             <FormField label="需求负责人">
               <OptionSelect options={memberOptions(members, "未指定")} value={ownerId ?? NONE} onValueChange={setOwnerId} className="w-full" />
             </FormField>
@@ -140,6 +145,11 @@ export function RequirementFormDialog({ projectId, projectKey, members, requirem
                 }))}
               />
             </FormField>
+            {!requirement && (
+              <FormField label="计划交付周期">
+                <OptionSelect options={cycleOptions(cycles, "待排期")} value={cycleId} onValueChange={setCycleId} className="w-full" />
+              </FormField>
+            )}
           </div>
 
           <FormField
