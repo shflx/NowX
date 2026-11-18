@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAction } from "@/hooks/use-action";
 import { cn } from "@/lib/utils";
 
-import { type Credentials, resetAccountPassword, setAccountStatus } from "../actions";
+import { type Credentials, deleteAccount, resetAccountPassword, setAccountStatus } from "../actions";
 import type { AccountRow } from "../queries";
 import { AccountDialog } from "./account-dialog";
 import { CredentialsDialog } from "./credentials-dialog";
@@ -31,6 +31,7 @@ export function AccountsTable({ accounts, projects, currentUserId, appUrl }: Pro
 
   const reset = useAction(resetAccountPassword, { onSuccess: (c) => setCredentials({ ...c, kind: "reset" }) });
   const toggle = useAction(setAccountStatus, { successMessage: "账号状态已更新" });
+  const remove = useAction(deleteAccount, { successMessage: ({ name }) => `已删除账号 ${name}` });
 
   const activeCount = accounts.filter((a) => a.status === "ACTIVE").length;
 
@@ -38,7 +39,7 @@ export function AccountsTable({ accounts, projects, currentUserId, appUrl }: Pro
     <>
       <PageHeader
         title="账号管理"
-        description={`平台不开放注册，所有账号由管理员创建。共 ${accounts.length} 个账号，${activeCount} 个正常使用`}
+        description={`平台不开放注册，所有账号由管理员创建。共 ${accounts.length} 个账号，${activeCount} 个正常使用。有协作记录的账号只能停用，不能删除`}
         actions={
           <Button onClick={() => setDialog({})}>
             <PlusIcon />
@@ -65,6 +66,7 @@ export function AccountsTable({ accounts, projects, currentUserId, appUrl }: Pro
             {accounts.map((a) => {
               const disabled = a.status === "DISABLED";
               const self = a.id === currentUserId;
+              const hasRecords = Object.values(a._count).some((n) => n > 0);
               return (
                 <TableRow key={a.id} className={cn(disabled && "text-muted-foreground")}>
                   <TableCell>
@@ -134,6 +136,25 @@ export function AccountsTable({ accounts, projects, currentUserId, appUrl }: Pro
                           confirmLabel="停用"
                           destructive
                           onConfirm={() => toggle.run(a.id, "DISABLED")}
+                        />
+                      ))}
+                    {!self &&
+                      (hasRecords ? (
+                        <Button variant="ghost" size="sm" disabled title="已有任务、帖子等协作记录，只能停用">
+                          删除
+                        </Button>
+                      ) : (
+                        <ConfirmButton
+                          trigger={
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                              删除
+                            </Button>
+                          }
+                          title={`删除 ${a.name} 的账号？`}
+                          description="该账号还没有任何协作记录，删除后会从所有项目中移除，且无法恢复。"
+                          confirmLabel="删除"
+                          destructive
+                          onConfirm={() => remove.run(a.id)}
                         />
                       ))}
                   </TableCell>

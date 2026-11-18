@@ -29,6 +29,7 @@ function useBreadcrumb() {
   const project = useCurrentProject();
   if (pathname === "/") return [project?.name ?? "NowX", "工作台"];
   if (pathname.startsWith("/admin/accounts")) return ["系统", "账号管理"];
+  if (pathname.startsWith("/admin/projects")) return ["系统", "项目管理"];
   const section = pathname.split("/")[3];
   const detail = pathname.split("/")[4];
   const crumbs = [project?.name ?? "项目", SECTION_TITLES[section] ?? ""];

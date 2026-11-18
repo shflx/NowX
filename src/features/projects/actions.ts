@@ -8,6 +8,7 @@ import { runAction } from "@/server/action";
 import { db } from "@/server/db";
 import { publishProjectChange } from "@/server/events";
 import { notify } from "@/server/notifications";
+import { deleteFile } from "@/server/storage";
 
 import { createProjectSchema, projectFieldsSchema } from "./schemas";
 
@@ -85,5 +86,35 @@ export async function removeProjectMember(projectId: string, userId: string) {
     await db.projectMember.delete({ where: { projectId_userId: { projectId, userId } } });
     publishProjectChange(projectId);
     refresh();
+  });
+}
+
+/**
+ * 删除项目：项目下的周期、需求、任务、帖子、材料、公告、动态全部级联删除，且不可恢复。
+ * 需要输入项目编号前缀确认；上传的文件在数据删除成功后从存储中清理。
+ */
+export async function deleteProject(projectId: string, confirmKey: string) {
+  return runAction(async () => {
+    await requireAdmin();
+    const project = await db.project.findUnique({ where: { id: projectId } });
+    if (!project) throw new ActionError("项目不存在");
+    if (confirmKey.trim().toUpperCase() !== project.key) {
+      throw new ActionError("输入的编号前缀不一致", { confirmKey: `请输入 ${project.key} 确认删除` });
+    }
+
+    const files = await db.material.findMany({
+      where: { projectId, storageKey: { not: null } },
+      select: { storageKey: true },
+    });
+
+    await db.$transaction([
+      // 指向该项目的通知已无法打开，一并清理
+      db.notification.deleteMany({ where: { href: { startsWith: `/projects/${project.key}/` } } }),
+      db.project.delete({ where: { id: projectId } }),
+    ]);
+
+    await Promise.allSettled(files.map((f) => deleteFile(f.storageKey!)));
+    refresh();
+    return { name: project.name };
   });
 }

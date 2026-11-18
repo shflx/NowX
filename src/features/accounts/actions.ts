@@ -96,3 +96,43 @@ export async function setAccountStatus(userId: string, status: "ACTIVE" | "DISAB
     refresh();
   });
 }
+
+/**
+ * 删除账号：只允许删除没有留下协作记录的账号（例如建错、从未使用的账号）。
+ * 已参与协作的账号请停用，以保留任务、帖子等历史中的作者信息。
+ */
+export async function deleteAccount(userId: string) {
+  return runAction(async () => {
+    const admin = await requireAdmin();
+    if (userId === admin.id) throw new ActionError("不能删除自己的账号");
+
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      include: {
+        _count: {
+          select: {
+            createdTasks: true,
+            assignedTasks: true,
+            comments: true,
+            topics: true,
+            replies: true,
+            materials: true,
+            announcements: true,
+            activities: true,
+          },
+        },
+      },
+    });
+    if (!user) throw new ActionError("账号不存在");
+
+    const used = Object.values(user._count).some((n) => n > 0);
+    if (used) {
+      throw new ActionError(`${user.name} 已有任务、帖子等协作记录，不能删除；如不再使用，请停用该账号`);
+    }
+
+    // 会话、项目成员关系、通知随账号级联删除；负责的需求、指定回答的帖子置空
+    await db.user.delete({ where: { id: userId } });
+    refresh();
+    return { name: user.name };
+  });
+}

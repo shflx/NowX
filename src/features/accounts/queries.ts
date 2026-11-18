@@ -16,6 +16,19 @@ export async function listAccounts() {
       color: true,
       mustChangePassword: true,
       lastLoginAt: true,
+      // 有任何协作记录的账号不能删除，只能停用
+      _count: {
+        select: {
+          createdTasks: true,
+          assignedTasks: true,
+          comments: true,
+          topics: true,
+          replies: true,
+          materials: true,
+          announcements: true,
+          activities: true,
+        },
+      },
       memberships: {
         orderBy: { joinedAt: "asc" },
         select: { project: { select: { id: true, key: true, name: true, color: true } } },

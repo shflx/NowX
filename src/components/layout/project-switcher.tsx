@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, ChevronsUpDownIcon, FolderCogIcon, PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -18,7 +18,7 @@ import { CreateProjectDialog } from "@/features/projects/components/create-proje
 import { useCurrentProject, useWorkspace } from "./workspace-context";
 
 export function ProjectSwitcher() {
-  const { projects, user } = useWorkspace();
+  const { projects, user, directory } = useWorkspace();
   const current = useCurrentProject();
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -75,11 +75,15 @@ export function ProjectSwitcher() {
                 <PlusIcon />
                 新建项目
               </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => router.push("/admin/projects")}>
+                <FolderCogIcon />
+                管理项目
+              </DropdownMenuItem>
             </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      {isAdmin && <CreateProjectDialog open={creating} onOpenChange={setCreating} />}
+      {isAdmin && <CreateProjectDialog open={creating} onOpenChange={setCreating} currentUserId={user.id} directory={directory} />}
     </>
   );
 }

@@ -73,3 +73,17 @@ export async function listProjectMembers(projectId: string) {
 }
 
 export type ProjectMemberOption = Awaited<ReturnType<typeof listProjectMembers>>[number];
+
+/** 项目管理列表（管理员）：全部项目及规模统计 */
+export async function listProjectsForAdmin() {
+  const projects = await db.project.findMany({
+    orderBy: [{ archivedAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],
+    include: {
+      _count: { select: { members: true, tasks: true, requirements: true, topics: true, materials: true } },
+      cycles: { where: { status: "ACTIVE" }, select: { name: true } },
+    },
+  });
+  return projects.map(({ cycles, ...p }) => ({ ...p, activeCycle: cycles[0]?.name ?? null }));
+}
+
+export type AdminProjectRow = Awaited<ReturnType<typeof listProjectsForAdmin>>[number];

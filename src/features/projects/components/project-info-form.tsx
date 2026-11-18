@@ -13,6 +13,7 @@ import { useAction } from "@/hooks/use-action";
 import { PROJECT_COLORS } from "@/lib/constants";
 
 import { setProjectArchived, updateProject } from "../actions";
+import { DeleteProjectButton } from "./delete-project-button";
 
 type Props = {
   project: { id: string; key: string; name: string; description: string; color: string; archived: boolean };
@@ -67,6 +68,15 @@ export function ProjectInfoForm({ project }: Props) {
             }
             confirmLabel={project.archived ? "取消归档" : "归档"}
             onConfirm={() => archive.run(!project.archived)}
+          />
+          <DeleteProjectButton
+            project={project}
+            redirectTo="/admin/projects"
+            trigger={
+              <Button type="button" variant="ghost" className="text-destructive hover:text-destructive">
+                删除项目
+              </Button>
+            }
           />
         </div>
       </form>

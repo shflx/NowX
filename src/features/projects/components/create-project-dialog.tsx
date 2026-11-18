@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { useWorkspace } from "@/components/layout/workspace-context";
 import { ColorSwatches } from "@/components/shared/color-swatches";
 import { FormField } from "@/components/shared/form-field";
 import { UserChecklist } from "@/components/shared/user-checklist";
@@ -16,10 +15,16 @@ import { PROJECT_COLORS } from "@/lib/constants";
 
 import { createProject } from "../actions";
 
-type Props = { open: boolean; onOpenChange: (open: boolean) => void };
+type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** 创建者本人（固定为成员） */
+  currentUserId: string;
+  /** 可选的成员（全部正常状态的账号） */
+  directory: { id: string; name: string; title: string; color: string }[];
+};
 
-export function CreateProjectDialog({ open, onOpenChange }: Props) {
-  const { user, directory } = useWorkspace();
+export function CreateProjectDialog({ open, onOpenChange, currentUserId, directory }: Props) {
   const router = useRouter();
   const [color, setColor] = useState(PROJECT_COLORS[0]);
   const [memberIds, setMemberIds] = useState<string[]>([]);
@@ -63,7 +68,7 @@ export function CreateProjectDialog({ open, onOpenChange }: Props) {
             <ColorSwatches colors={PROJECT_COLORS} value={color} onChange={setColor} />
           </FormField>
           <FormField label="成员" description="之后也可以在项目设置中调整">
-            <UserChecklist users={directory} value={memberIds} onChange={setMemberIds} lockedIds={[user.id]} />
+            <UserChecklist users={directory} value={memberIds} onChange={setMemberIds} lockedIds={[currentUserId]} />
           </FormField>
         </form>
         <DialogFooter>

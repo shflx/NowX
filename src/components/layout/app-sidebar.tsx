@@ -12,6 +12,7 @@ import {
   SlidersHorizontalIcon,
   UsersIcon,
   KeyRoundIcon,
+  FolderCogIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -124,6 +125,9 @@ export function AppSidebar() {
                 项目设置
               </NavItem>
             )}
+            <NavItem href="/admin/projects" icon={FolderCogIcon}>
+              项目管理
+            </NavItem>
             <NavItem href="/admin/accounts" icon={UsersIcon}>
               账号管理
             </NavItem>
