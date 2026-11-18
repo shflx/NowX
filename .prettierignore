@@ -1,0 +1,5 @@
+src/generated
+src/components/ui
+prisma/migrations
+prototypes
+pnpm-lock.yaml
