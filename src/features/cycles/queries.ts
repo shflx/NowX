@@ -69,16 +69,31 @@ export async function getCycleDetail(cycle: CycleListItem) {
     .filter((m) => m.total > 0)
     .sort((a, b) => b.total - a.total);
 
-  // 按来源需求汇总
-  const byRequirement = new Map<string, { id: string; code: string; title: string; number: number; tasks: typeof tasks }>();
-  for (const t of tasks) {
-    if (!t.requirement) continue;
-    const r = t.requirement;
-    const entry = byRequirement.get(r.id) ?? { id: r.id, number: r.number, code: requirementCode(r.number), title: r.title, tasks: [] };
-    entry.tasks.push(t);
-    byRequirement.set(r.id, entry);
-  }
-  const requirements = [...byRequirement.values()].map(({ tasks, ...r }) => ({ ...r, ...summarize(countByStatus(tasks)) }));
+  // 本期需求：计划在本周期交付的需求，加上从本周期顺延出去的需求（用于周期回顾）
+  const planned = await db.requirement.findMany({
+    where: { OR: [{ cycleId: cycle.id }, { carriedFromCycleId: cycle.id }] },
+    orderBy: { number: "asc" },
+    select: {
+      id: true,
+      number: true,
+      title: true,
+      status: true,
+      cycleId: true,
+      carriedFromCycleId: true,
+      carriedFrom: { select: { name: true } },
+      cycle: { select: { name: true } },
+      tasks: { where: { parentId: null }, select: { status: true } },
+    },
+  });
+  const requirements = planned.map(({ tasks, ...r }) => ({
+    ...r,
+    code: requirementCode(r.number),
+    ...summarize(countByStatus(tasks)),
+    /** 已从本周期顺延到其他周期 */
+    carriedOut: r.cycleId !== cycle.id,
+    /** 由其他周期顺延进本周期 */
+    carriedIn: r.cycleId === cycle.id && r.carriedFromCycleId !== null && r.carriedFromCycleId !== cycle.id,
+  }));
 
   return { time, points, members, requirements, carried };
 }

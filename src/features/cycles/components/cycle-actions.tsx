@@ -10,7 +10,7 @@ import { useAction } from "@/hooks/use-action";
 
 import { deleteCycle, startCycle } from "../actions";
 import { CycleFormDialog } from "./cycle-form-dialog";
-import { EndCycleDialog } from "./end-cycle-dialog";
+import { EndCycleDialog, type UndeliveredRequirement } from "./end-cycle-dialog";
 
 type CycleLite = { id: string; name: string; startDate: string; endDate: string; goal: string; status: string };
 
@@ -43,10 +43,11 @@ type CycleActionsProps = {
   cycle: CycleLite;
   cycles: CycleLite[];
   unfinished: { id: string; code: string; title: string; status: TaskStatus; assignee: { name: string; color: string } | null }[];
+  undeliveredRequirements: UndeliveredRequirement[];
 };
 
 /** 周期详情右上角的操作：编辑 / 删除 / 开始 / 结束 */
-export function CycleActions({ projectId, cycle, cycles, unfinished }: CycleActionsProps) {
+export function CycleActions({ projectId, cycle, cycles, unfinished, undeliveredRequirements }: CycleActionsProps) {
   const [editing, setEditing] = useState(false);
   const [ending, setEnding] = useState(false);
   const start = useAction(startCycle, { successMessage: `「${cycle.name}」已开始` });
@@ -82,7 +83,7 @@ export function CycleActions({ projectId, cycle, cycles, unfinished }: CycleActi
             destructive: true,
             hidden: cycle.status !== "PLANNED",
             onSelect: () => remove.run(cycle.id),
-            confirm: { title: `删除「${cycle.name}」？`, description: "周期中的任务不会被删除，会回到待规划状态。", confirmLabel: "删除" },
+            confirm: { title: `删除「${cycle.name}」？`, description: "周期中的任务和需求不会被删除，任务回到待规划，需求回到待排期。", confirmLabel: "删除" },
           },
         ]}
       />
@@ -101,6 +102,7 @@ export function CycleActions({ projectId, cycle, cycles, unfinished }: CycleActi
         <EndCycleDialog
           cycle={cycle}
           unfinished={unfinished}
+          requirements={undeliveredRequirements}
           planned={cycles.filter((c) => c.status === "PLANNED")}
           onClose={() => setEnding(false)}
         />

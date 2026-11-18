@@ -10,6 +10,7 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import type { CycleStatus } from "@/generated/prisma/enums";
 import { BurndownChart } from "@/features/cycles/components/burndown-chart";
+import { RequirementStatusBadge } from "@/features/requirements/components/requirement-status-badge";
 import { CycleActions, NewCycleButton } from "@/features/cycles/components/cycle-actions";
 import { getCycleDetail, listCycles } from "@/features/cycles/queries";
 import { behindPlan } from "@/features/cycles/stats";
@@ -70,6 +71,9 @@ export default async function CyclesPage({ params, searchParams }: PageProps<"/p
       : [],
   ]);
   const maxLoad = Math.max(1, ...detail.members.map((m) => m.total));
+  const plannedReqs = detail.requirements;
+  const deliveredReqs = plannedReqs.filter((r) => r.status === "DELIVERED");
+  const carriedOutReqs = plannedReqs.filter((r) => r.carriedOut);
   const behind = selected.status === "ACTIVE" ? behindPlan(selected.total, selected.remaining, selected.startDate, selected.endDate, now) : 0;
 
   return (
@@ -115,6 +119,9 @@ export default async function CyclesPage({ params, searchParams }: PageProps<"/p
                   cycle={selected}
                   cycles={cycles}
                   unfinished={unfinished.map((t) => ({ ...t, code: taskCode(project.key, t.number) }))}
+                  undeliveredRequirements={plannedReqs
+                    .filter((r) => !r.carriedOut && r.status !== "DELIVERED")
+                    .map((r) => ({ id: r.id, code: r.code, title: r.title, allTasksDone: r.total > 0 && r.done === r.total }))}
                 />
               </div>
             </div>
@@ -128,6 +135,41 @@ export default async function CyclesPage({ params, searchParams }: PageProps<"/p
                 value={selected.status === "ACTIVE" ? `${detail.time.daysLeft} 天` : selected.status === "ENDED" ? "已结束" : `${detail.time.days} 天`}
               />
             </div>
+          </SectionCard>
+
+          <SectionCard
+            title="本期需求"
+            extra={
+              <span className="text-xs text-muted-foreground">
+                计划交付 {plannedReqs.length} 条 · 已交付 {deliveredReqs.length} 条
+                {carriedOutReqs.length > 0 && ` · 顺延 ${carriedOutReqs.length} 条`}
+              </span>
+            }
+          >
+            {plannedReqs.length ? (
+              <ul>
+                {plannedReqs.map((r) => (
+                  <li key={r.id}>
+                    <Link
+                      href={`/projects/${project.key}/requirements/${r.number}`}
+                      className="flex items-center gap-3 border-t py-2.5 text-sm first:border-0 hover:text-accent-text"
+                    >
+                      <span className="text-xs text-muted-foreground tabular-nums">{r.code}</span>
+                      <span className="flex-1 truncate">{r.title}</span>
+                      {r.carriedIn && <StatusBadge tone="warn">由「{r.carriedFrom?.name}」顺延</StatusBadge>}
+                      {r.carriedOut && <StatusBadge tone="warn">已顺延到「{r.cycle?.name ?? "待排期"}」</StatusBadge>}
+                      <RequirementStatusBadge status={r.status} />
+                      <ProgressBar value={r.percent} className="w-32" />
+                      <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
+                        {r.done}/{r.total}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">还没有需求排入本周期，可以在需求详情中「排入周期」</p>
+            )}
           </SectionCard>
 
           {selected.status !== "PLANNED" && (
@@ -171,34 +213,12 @@ export default async function CyclesPage({ params, searchParams }: PageProps<"/p
             )}
           </SectionCard>
 
-          <SectionCard title="需求进度">
-            {detail.requirements.length ? (
-              <ul>
-                {detail.requirements.map((r) => (
-                  <li key={r.id}>
-                    <Link
-                      href={`/projects/${project.key}/requirements/${r.number}`}
-                      className="flex items-center gap-3 border-t py-2.5 text-sm first:border-0 hover:text-accent-text"
-                    >
-                      <span className="text-xs text-muted-foreground tabular-nums">{r.code}</span>
-                      <span className="flex-1 truncate">{r.title}</span>
-                      <ProgressBar value={r.percent} className="w-40" />
-                      <span className="w-14 text-right text-xs text-muted-foreground tabular-nums">
-                        {r.done}/{r.total}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">本周期没有关联需求的任务</p>
-            )}
-          </SectionCard>
-
           {selected.status === "ENDED" && (
             <SectionCard title="周期回顾">
               <p className="mb-2 text-sm text-muted-foreground">
-                完成 {selected.done}/{selected.total} 个任务，完成率 {selected.percent}%。
+                计划交付 {plannedReqs.length} 条需求，已交付 {deliveredReqs.length} 条
+                {carriedOutReqs.length > 0 && `，顺延 ${carriedOutReqs.length} 条`}；完成 {selected.done}/{selected.total} 个任务，完成率{" "}
+                {selected.percent}%。
                 {detail.carried.length > 0 && `以下 ${detail.carried.length} 个任务顺延到了后续周期：`}
               </p>
               {detail.carried.map((t) => (
