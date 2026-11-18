@@ -42,7 +42,7 @@ export default async function MaterialsPage({ params, searchParams }: PageProps<
           docType: m.docType,
           meta: m.kind === "LINK" ? `${DOC_TYPE_META[m.docType ?? "OTHER"].label} · 外部链接` : formatFileSize(m.fileSize ?? 0),
           date: formatRelative(m.createdAt, appConfig.timeZone, now),
-          canDelete: m.uploaderId === user.id || isAdmin(user),
+          canManage: m.uploaderId === user.id || isAdmin(user),
           uploader: m.uploader,
           requirement: m.requirement ? { number: m.requirement.number, code: requirementCode(m.requirement.number) } : null,
           tags: m.tags.map(({ tag }) => ({ id: tag.id, name: tag.name, color: tag.color })),

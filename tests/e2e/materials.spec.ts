@@ -36,3 +36,23 @@ test("上传文件后可以下载", async ({ page }) => {
   expect(response.status()).toBe(200);
   expect(await response.text()).toBe("hello nowx");
 });
+
+test("重命名文件材料时自动保留扩展名", async ({ page }) => {
+  const id = uniq();
+  await login(page, "linzhou");
+  await page.goto("/projects/CRM/materials");
+
+  await page.getByRole("button", { name: "上传文件" }).click();
+  await page.locator('input[type="file"]').setInputFiles({ name: `draft-${id}.txt`, mimeType: "text/plain", buffer: Buffer.from("v1") });
+  await page.getByRole("button", { name: "添加", exact: true }).click();
+  await expect(page.getByRole("link", { name: `draft-${id}.txt` })).toBeVisible();
+
+  const card = page.locator("div.group").filter({ hasText: `draft-${id}.txt` });
+  await card.getByRole("button", { name: "材料操作" }).click();
+  await page.getByRole("menuitem", { name: "重命名" }).click();
+  await page.getByLabel("名称", { exact: true }).fill(`需求评审记录 ${id}`);
+  await page.getByRole("button", { name: "保存" }).click();
+
+  // 未写扩展名，自动补上 .txt
+  await expect(page.getByRole("link", { name: `需求评审记录 ${id}.txt` })).toBeVisible();
+});

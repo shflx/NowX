@@ -12,7 +12,7 @@ import { publishProjectChange } from "@/server/events";
 import { requireProjectAccess } from "@/server/permissions";
 import { deleteFile } from "@/server/storage";
 
-import { linkMaterialSchema, tagNameSchema, tagUpdateSchema } from "./schemas";
+import { linkMaterialSchema, materialNameSchema, tagNameSchema, tagUpdateSchema } from "./schemas";
 import { findOrCreateTag, validTagIds } from "./service";
 
 export async function createLinkMaterial(projectId: string, input: unknown) {
@@ -59,6 +59,29 @@ export async function updateMaterialTags(materialId: string, tagIds: string[]) {
     ]);
     publishProjectChange(material.projectId);
     refresh();
+  });
+}
+
+/** 文件扩展名（含点），没有则为空串 */
+const extOf = (name: string) => name.match(/\.[A-Za-z0-9]{1,10}$/)?.[0] ?? "";
+
+/**
+ * 重命名材料：仅上传人或管理员。
+ * 文件材料的下载文件名取自名称，新名称缺少原扩展名时自动补上，避免下载后无法打开。
+ */
+export async function renameMaterial(materialId: string, name: string) {
+  return runAction(async () => {
+    const { material, user } = await loadMaterial(materialId);
+    if (material.uploaderId !== user.id && !isAdmin(user)) throw new ActionError("只有上传人或管理员可以重命名");
+
+    let next = parseInput(materialNameSchema, name);
+    const ext = material.kind === "FILE" ? extOf(material.name) : "";
+    if (ext && !next.toLowerCase().endsWith(ext.toLowerCase())) next = `${next}${ext}`;
+
+    await db.material.update({ where: { id: materialId }, data: { name: next } });
+    publishProjectChange(material.projectId);
+    refresh();
+    return { name: next };
   });
 }
 

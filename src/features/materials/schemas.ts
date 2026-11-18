@@ -15,3 +15,5 @@ export const tagUpdateSchema = z.object({
   name: tagNameSchema.optional(),
   color: z.enum(TAG_COLOR_KEYS as [string, ...string[]]).optional(),
 });
+
+export const materialNameSchema = z.string().trim().min(1, "名称不能为空").max(120, "名称不能超过 120 个字");

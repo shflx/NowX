@@ -1,10 +1,11 @@
 "use client";
 
-import { LinkIcon, PlusIcon, TagIcon, Trash2Icon, UploadIcon } from "lucide-react";
+import { LinkIcon, PencilIcon, PlusIcon, TagIcon, Trash2Icon, UploadIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 import { ActionMenu } from "@/components/shared/action-menu";
+import { FormField } from "@/components/shared/form-field";
 import { PageHeader } from "@/components/shared/page-header";
 import { TagChip, tagColors } from "@/components/shared/tag-chip";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -12,10 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { DocType, MaterialKind } from "@/generated/prisma/enums";
 import type { RequirementLite } from "@/features/tasks/components/types";
+import { Input } from "@/components/ui/input";
 import { useAction } from "@/hooks/use-action";
 import { cn } from "@/lib/utils";
 
-import { deleteMaterial, updateMaterialTags } from "../actions";
+import { deleteMaterial, renameMaterial, updateMaterialTags } from "../actions";
 import { AddMaterialDialog } from "./add-material-dialog";
 import { MaterialIcon, materialHref } from "./material-icon";
 import { TagManagerDialog } from "./tag-manager-dialog";
@@ -29,7 +31,8 @@ export type MaterialCardData = {
   docType: DocType | null;
   meta: string;
   date: string;
-  canDelete: boolean;
+  /** 上传人或管理员：可重命名、删除 */
+  canManage: boolean;
   uploader: { name: string; color: string };
   requirement: { number: number; code: string } | null;
   tags: TagLite[];
@@ -50,6 +53,7 @@ export function MaterialLibrary({ projectId, projectKey, materials, tags, total,
   const [adding, setAdding] = useState<"file" | "link" | null>(null);
   const [managing, setManaging] = useState(false);
   const [editing, setEditing] = useState<MaterialCardData | null>(null);
+  const [renaming, setRenaming] = useState<MaterialCardData | null>(null);
 
   return (
     <>
@@ -102,7 +106,7 @@ export function MaterialLibrary({ projectId, projectKey, materials, tags, total,
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
           {materials.map((m) => (
-            <MaterialCard key={m.id} material={m} projectKey={projectKey} onEditTags={() => setEditing(m)} />
+            <MaterialCard key={m.id} material={m} projectKey={projectKey} onEditTags={() => setEditing(m)} onRename={() => setRenaming(m)} />
           ))}
         </div>
       )}
@@ -118,6 +122,7 @@ export function MaterialLibrary({ projectId, projectKey, materials, tags, total,
         />
       )}
       {managing && <TagManagerDialog projectId={projectId} tags={tags} onClose={() => setManaging(false)} />}
+      {renaming && <RenameDialog material={renaming} onClose={() => setRenaming(null)} />}
       {editing && <EditTagsDialog projectId={projectId} material={editing} tags={tags} onClose={() => setEditing(null)} />}
     </>
   );
@@ -139,7 +144,9 @@ function FilterChip({ href, active, children }: { href: string; active: boolean;
   );
 }
 
-function MaterialCard({ material: m, projectKey, onEditTags }: { material: MaterialCardData; projectKey: string; onEditTags: () => void }) {
+type CardProps = { material: MaterialCardData; projectKey: string; onEditTags: () => void; onRename: () => void };
+
+function MaterialCard({ material: m, projectKey, onEditTags, onRename }: CardProps) {
   const remove = useAction(deleteMaterial, { successMessage: "已删除" });
   return (
     <div className="group relative flex flex-col gap-2.5 rounded-lg border bg-card p-3.5 shadow-xs transition-colors hover:border-input">
@@ -161,12 +168,13 @@ function MaterialCard({ material: m, projectKey, onEditTags }: { material: Mater
           <ActionMenu
             label="材料操作"
             items={[
+              { label: "重命名", icon: PencilIcon, onSelect: onRename, hidden: !m.canManage },
               { label: "编辑标签", icon: TagIcon, onSelect: onEditTags },
               {
                 label: "删除材料",
                 icon: Trash2Icon,
                 destructive: true,
-                hidden: !m.canDelete,
+                hidden: !m.canManage,
                 onSelect: () => remove.run(m.id),
                 confirm: {
                   title: `删除「${m.name}」？`,
@@ -219,6 +227,57 @@ function EditTagsDialog({ projectId, material, tags, onClose }: { projectId: str
             取消
           </Button>
           <Button disabled={save.pending} onClick={() => save.run(value)}>
+            保存
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RenameDialog({ material, onClose }: { material: MaterialCardData; onClose: () => void }) {
+  const [name, setName] = useState(material.name);
+  const rename = useAction(renameMaterial.bind(null, material.id), { successMessage: "已重命名", onSuccess: onClose });
+  const isFile = material.kind === "FILE";
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>重命名</DialogTitle>
+        </DialogHeader>
+        <form
+          id="rename-material"
+          onSubmit={(e) => {
+            e.preventDefault();
+            rename.run(name);
+          }}
+        >
+          <FormField
+            label="名称"
+            htmlFor="material-name"
+            error={rename.fieldErrors._}
+            description={isFile ? "未填写扩展名时会自动保留原扩展名" : undefined}
+          >
+            <Input
+              id="material-name"
+              value={name}
+              maxLength={120}
+              autoFocus
+              // 文件默认只选中扩展名之前的部分，方便直接改名
+              onFocus={(e) => {
+                const dot = isFile ? e.target.value.lastIndexOf(".") : -1;
+                e.target.setSelectionRange(0, dot > 0 ? dot : e.target.value.length);
+              }}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </FormField>
+        </form>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            取消
+          </Button>
+          <Button type="submit" form="rename-material" disabled={rename.pending || !name.trim() || name.trim() === material.name}>
             保存
           </Button>
         </DialogFooter>
