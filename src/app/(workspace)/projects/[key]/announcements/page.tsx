@@ -41,12 +41,18 @@ export default async function AnnouncementsPage({ params }: PageProps<"/projects
               )}
               <h2 className="text-base font-semibold">{a.title}</h2>
               <div className="ml-auto">
-                <AnnouncementActions id={a.id} pinned={a.pinned} canPin={admin} canDelete={a.authorId === user.id || admin} />
+                <AnnouncementActions
+                  projectId={project.id}
+                  announcement={{ id: a.id, title: a.title, body: a.body, pinned: a.pinned }}
+                  canPin={admin}
+                  canManage={a.authorId === user.id || admin}
+                />
               </div>
             </div>
             <div className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
               <UserAvatar user={a.author} size="sm" />
               {a.author.name} · {formatDateTime(a.createdAt, appConfig.timeZone)}
+              {a.editedAt && <span title={`编辑于 ${formatDateTime(a.editedAt, appConfig.timeZone)}`}>· 已编辑</span>}
             </div>
             <Markdown>{a.body}</Markdown>
           </article>

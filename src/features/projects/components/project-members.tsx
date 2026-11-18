@@ -1,9 +1,9 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, UserMinusIcon } from "lucide-react";
 import { useState } from "react";
 
-import { ConfirmButton } from "@/components/shared/confirm-button";
+import { ActionMenu } from "@/components/shared/action-menu";
 import { SectionCard } from "@/components/shared/section-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -84,17 +84,17 @@ export function ProjectMembers({ projectId, currentUserId, directory, members, a
               <TableCell className="text-muted-foreground">{m.title}</TableCell>
               <TableCell className="tabular-nums">{m.activeTasks} 个</TableCell>
               <TableCell className="pr-4 text-right">
-                <ConfirmButton
-                  trigger={
-                    <Button variant="ghost" size="sm">
-                      移出
-                    </Button>
-                  }
-                  title={`把 ${m.name} 移出项目？`}
-                  description="其负责的任务和发过的帖子会保留。"
-                  confirmLabel="移出"
-                  destructive
-                  onConfirm={() => remove.run(m.id)}
+                <ActionMenu
+                  label={`${m.name} 的操作`}
+                  items={[
+                    {
+                      label: "移出项目",
+                      icon: UserMinusIcon,
+                      destructive: true,
+                      onSelect: () => remove.run(m.id),
+                      confirm: { title: `把 ${m.name} 移出项目？`, description: "其负责的任务和发过的帖子会保留。", confirmLabel: "移出" },
+                    },
+                  ]}
                 />
               </TableCell>
             </TableRow>

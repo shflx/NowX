@@ -3,7 +3,7 @@
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 
-import { ConfirmButton } from "@/components/shared/confirm-button";
+import { ActionMenu } from "@/components/shared/action-menu";
 import { Button } from "@/components/ui/button";
 import type { TaskStatus } from "@/generated/prisma/enums";
 import { useAction } from "@/hooks/use-action";
@@ -62,19 +62,6 @@ export function CycleActions({ projectId, cycle, cycles, unfinished }: CycleActi
       )}
       {cycle.status === "PLANNED" && (
         <>
-          <ConfirmButton
-            trigger={
-              <Button variant="ghost" size="sm">
-                <Trash2Icon />
-                删除
-              </Button>
-            }
-            title={`删除「${cycle.name}」？`}
-            description="周期中的任务不会被删除，会回到待规划状态。"
-            confirmLabel="删除"
-            destructive
-            onConfirm={() => remove.run(cycle.id)}
-          />
           <Button disabled={start.pending} onClick={() => start.run(cycle.id)}>
             开始周期
           </Button>
@@ -85,6 +72,20 @@ export function CycleActions({ projectId, cycle, cycles, unfinished }: CycleActi
           结束周期
         </Button>
       )}
+
+      <ActionMenu
+        label="周期操作"
+        items={[
+          {
+            label: "删除周期",
+            icon: Trash2Icon,
+            destructive: true,
+            hidden: cycle.status !== "PLANNED",
+            onSelect: () => remove.run(cycle.id),
+            confirm: { title: `删除「${cycle.name}」？`, description: "周期中的任务不会被删除，会回到待规划状态。", confirmLabel: "删除" },
+          },
+        ]}
+      />
 
       {editing && (
         <CycleFormDialog

@@ -3,6 +3,8 @@ import { expect, test } from "@playwright/test";
 import { sessionAs, uniq } from "./helpers";
 
 test("提问、回复并采纳答案", async ({ browser }) => {
+  // 涉及两个账号、多次页面跳转，开发模式下首次编译较慢
+  test.setTimeout(60_000);
   const title = `E2E 手机号格式怎么处理 ${uniq()}`;
 
   // 陈晓提问，指定林舟回答；输入标题时推荐相似 FAQ

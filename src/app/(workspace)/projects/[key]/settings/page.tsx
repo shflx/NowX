@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { NoPermission } from "@/components/shared/no-permission";
 import { PageHeader } from "@/components/shared/page-header";
-import { ProjectInfoForm } from "@/features/projects/components/project-info-form";
+import { ProjectDangerZone, ProjectInfoForm } from "@/features/projects/components/project-info-form";
 import { ProjectMembers } from "@/features/projects/components/project-members";
 import { listProjectMembers } from "@/features/projects/queries";
 import { isAdmin } from "@/server/auth/dal";
@@ -51,6 +51,16 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
         }))}
         allProjects={allProjects}
         appUrl={appConfig.appUrl}
+      />
+      <ProjectDangerZone
+        project={{
+            id: project.id,
+            key: project.key,
+            name: project.name,
+            description: project.description,
+            color: project.color,
+            archived: Boolean(project.archivedAt),
+          }}
       />
     </div>
   );

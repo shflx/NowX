@@ -1,46 +1,24 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog, type ConfirmOptions } from "./confirm-dialog";
 
-type ConfirmButtonProps = {
+type ConfirmButtonProps = ConfirmOptions & {
   /** 触发按钮 */
   trigger: ReactNode;
-  title: string;
-  description?: ReactNode;
-  confirmLabel?: string;
-  destructive?: boolean;
   onConfirm: () => void;
 };
 
-/** 需要二次确认的操作（删除、停用等） */
-export function ConfirmButton({ trigger, title, description, confirmLabel = "确定", destructive, onConfirm }: ConfirmButtonProps) {
+/** 点击后先弹出二次确认的按钮 */
+export function ConfirmButton({ trigger, onConfirm, ...options }: ConfirmButtonProps) {
+  const [open, setOpen] = useState(false);
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction variant={destructive ? "destructive" : "default"} onClick={onConfirm}>
-            {confirmLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <>
+      <span className="contents" onClickCapture={() => setOpen(true)}>
+        {trigger}
+      </span>
+      <ConfirmDialog {...options} open={open} onOpenChange={setOpen} onConfirm={onConfirm} />
+    </>
   );
 }

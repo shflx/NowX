@@ -1,8 +1,7 @@
 "use client";
 
-import { Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
@@ -19,14 +18,18 @@ type Props = {
   summary?: string;
   /** 删除后跳转的地址（在项目内部删除时需要离开当前项目） */
   redirectTo?: string;
-  trigger?: ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
 /** 删除项目：需要输入编号前缀确认，防止误删 */
-export function DeleteProjectButton({ project, summary, redirectTo, trigger }: Props) {
+export function DeleteProjectDialog({ project, summary, redirectTo, open, onOpenChange }: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [confirmKey, setConfirmKey] = useState("");
+  const setOpen = (next: boolean) => {
+    onOpenChange(next);
+    if (!next) setConfirmKey("");
+  };
   const remove = useAction(deleteProject.bind(null, project.id), {
     successMessage: ({ name }) => `项目「${name}」已删除`,
     onSuccess: () => {
@@ -37,21 +40,7 @@ export function DeleteProjectButton({ project, summary, redirectTo, trigger }: P
 
   return (
     <>
-      <span onClick={() => setOpen(true)}>
-        {trigger ?? (
-          <Button variant="destructive">
-            <Trash2Icon />
-            删除项目
-          </Button>
-        )}
-      </span>
-      <Dialog
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) setConfirmKey("");
-        }}
-      >
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>删除项目「{project.name}」？</DialogTitle>

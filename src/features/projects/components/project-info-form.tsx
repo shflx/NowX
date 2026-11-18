@@ -13,7 +13,7 @@ import { useAction } from "@/hooks/use-action";
 import { PROJECT_COLORS } from "@/lib/constants";
 
 import { setProjectArchived, updateProject } from "../actions";
-import { DeleteProjectButton } from "./delete-project-button";
+import { DeleteProjectDialog } from "./delete-project-dialog";
 
 type Props = {
   project: { id: string; key: string; name: string; description: string; color: string; archived: boolean };
@@ -22,9 +22,6 @@ type Props = {
 export function ProjectInfoForm({ project }: Props) {
   const [color, setColor] = useState(project.color);
   const save = useAction(updateProject.bind(null, project.id), { successMessage: "已保存" });
-  const archive = useAction(setProjectArchived.bind(null, project.id), {
-    successMessage: project.archived ? "已取消归档" : "项目已归档",
-  });
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,32 +51,51 @@ export function ProjectInfoForm({ project }: Props) {
             {save.pending && <Spinner />}
             保存
           </Button>
+        </div>
+      </form>
+    </SectionCard>
+  );
+}
+
+/** 危险操作区：与日常设置分开放置，避免误触 */
+export function ProjectDangerZone({ project }: Props) {
+  const [deleting, setDeleting] = useState(false);
+  const archive = useAction(setProjectArchived.bind(null, project.id), {
+    successMessage: project.archived ? "已取消归档" : "项目已归档",
+  });
+
+  return (
+    <SectionCard title="危险操作" className="border-destructive/30">
+      <div className="flex flex-col divide-y">
+        <div className="flex items-center gap-4 pb-3">
+          <div className="flex-1 text-sm">
+            <div className="font-medium">{project.archived ? "取消归档" : "归档项目"}</div>
+            <p className="text-muted-foreground">
+              {project.archived ? "项目会重新出现在成员的项目列表中。" : "项目不再出现在成员的项目列表中，数据完整保留，可以随时取消归档。"}
+            </p>
+          </div>
           <ConfirmButton
             trigger={
-              <Button type="button" variant="ghost" className="ml-auto" disabled={archive.pending}>
-                {project.archived ? "取消归档" : "归档项目"}
+              <Button type="button" variant="outline" disabled={archive.pending}>
+                {project.archived ? "取消归档" : "归档"}
               </Button>
             }
             title={project.archived ? "取消归档？" : `归档「${project.name}」？`}
-            description={
-              project.archived
-                ? "项目会重新出现在成员的项目列表中。"
-                : "归档后项目不再出现在成员的项目列表中，数据会完整保留，管理员可以随时取消归档。"
-            }
             confirmLabel={project.archived ? "取消归档" : "归档"}
             onConfirm={() => archive.run(!project.archived)}
           />
-          <DeleteProjectButton
-            project={project}
-            redirectTo="/admin/projects"
-            trigger={
-              <Button type="button" variant="ghost" className="text-destructive hover:text-destructive">
-                删除项目
-              </Button>
-            }
-          />
         </div>
-      </form>
+        <div className="flex items-center gap-4 pt-3">
+          <div className="flex-1 text-sm">
+            <div className="font-medium">删除项目</div>
+            <p className="text-muted-foreground">永久删除项目及其中的全部周期、需求、任务、帖子、材料和公告，无法恢复。</p>
+          </div>
+          <Button type="button" variant="destructive" onClick={() => setDeleting(true)}>
+            删除项目
+          </Button>
+        </div>
+      </div>
+      <DeleteProjectDialog project={project} redirectTo="/admin/projects" open={deleting} onOpenChange={setDeleting} />
     </SectionCard>
   );
 }

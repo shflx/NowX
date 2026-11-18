@@ -4,7 +4,7 @@ import { LinkIcon, PlusIcon, TagIcon, Trash2Icon, UploadIcon } from "lucide-reac
 import Link from "next/link";
 import { useState } from "react";
 
-import { ConfirmButton } from "@/components/shared/confirm-button";
+import { ActionMenu } from "@/components/shared/action-menu";
 import { PageHeader } from "@/components/shared/page-header";
 import { TagChip, tagColors } from "@/components/shared/tag-chip";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -156,25 +156,26 @@ function MaterialCard({ material: m, projectKey, onEditTags }: { material: Mater
           </a>
           <div className="text-xs text-muted-foreground">{m.meta}</div>
         </div>
-        {/* 操作按钮位于覆盖链接之上 */}
-        <div className="relative z-10 -mt-1 -mr-1.5 flex opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <Button variant="ghost" size="icon-sm" aria-label="编辑标签" onClick={onEditTags}>
-            <TagIcon />
-          </Button>
-          {m.canDelete && (
-            <ConfirmButton
-              trigger={
-                <Button variant="ghost" size="icon-sm" aria-label="删除材料">
-                  <Trash2Icon />
-                </Button>
-              }
-              title={`删除「${m.name}」？`}
-              description={m.kind === "FILE" ? "文件会被永久删除。" : undefined}
-              confirmLabel="删除"
-              destructive
-              onConfirm={() => remove.run(m.id)}
-            />
-          )}
+        {/* 操作菜单位于覆盖链接之上 */}
+        <div className="relative z-10 -mt-1 -mr-1.5">
+          <ActionMenu
+            label="材料操作"
+            items={[
+              { label: "编辑标签", icon: TagIcon, onSelect: onEditTags },
+              {
+                label: "删除材料",
+                icon: Trash2Icon,
+                destructive: true,
+                hidden: !m.canDelete,
+                onSelect: () => remove.run(m.id),
+                confirm: {
+                  title: `删除「${m.name}」？`,
+                  description: m.kind === "FILE" ? "文件会被永久删除，无法恢复。" : "删除后无法恢复。",
+                  confirmLabel: "删除",
+                },
+              },
+            ]}
+          />
         </div>
       </div>
       <div className="flex flex-wrap gap-1">

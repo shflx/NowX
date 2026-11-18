@@ -16,8 +16,9 @@ test("在项目管理中新建并删除项目（需输入编号前缀确认）",
   await expect(page).toHaveURL(new RegExp(`/projects/${key}/cycles`));
 
   await page.goto("/admin/projects");
-  const row = page.getByRole("row").filter({ hasText: name });
-  await row.getByRole("button", { name: "删除" }).click();
+  // 删除放在「⋯」菜单底部
+  await page.getByRole("button", { name: `${name} 的操作` }).click();
+  await page.getByRole("menuitem", { name: "删除项目" }).click();
 
   const confirm = page.getByRole("button", { name: "永久删除" });
   await expect(confirm).toBeDisabled();
@@ -34,8 +35,10 @@ test("可以删除没有协作记录的账号，有记录的账号只能停用",
   await login(page, "linzhou");
   await page.goto("/admin/accounts");
 
-  // 演示账号陈晓有任务和帖子，删除按钮不可用
-  await expect(page.getByRole("row").filter({ hasText: "chenxiao" }).getByRole("button", { name: "删除" })).toBeDisabled();
+  // 演示账号陈晓有任务和帖子，删除不可用
+  await page.getByRole("button", { name: "陈晓 的账号操作" }).click();
+  await expect(page.getByRole("menuitem", { name: /删除账号/ })).toHaveAttribute("data-disabled");
+  await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "创建账号" }).click();
   await page.getByLabel("姓名").fill(`临时${id}`);
@@ -43,8 +46,8 @@ test("可以删除没有协作记录的账号，有记录的账号只能停用",
   await page.getByRole("button", { name: "创建账号" }).last().click();
   await page.getByRole("button", { name: "完成" }).click();
 
-  const row = page.getByRole("row").filter({ hasText: `tmp_${id}` });
-  await row.getByRole("button", { name: "删除" }).click();
+  await page.getByRole("button", { name: `临时${id} 的账号操作` }).click();
+  await page.getByRole("menuitem", { name: "删除账号" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
   await expect(page.getByRole("row").filter({ hasText: `tmp_${id}` })).toHaveCount(0);
 });

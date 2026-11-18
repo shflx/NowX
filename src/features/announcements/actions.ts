@@ -38,6 +38,24 @@ export async function publishAnnouncement(projectId: string, input: unknown) {
   });
 }
 
+/** 编辑公告：发布人或管理员；只有管理员可以修改置顶状态。编辑不再重复通知成员 */
+export async function updateAnnouncement(announcementId: string, input: unknown) {
+  return runAction(async () => {
+    const announcement = await db.announcement.findUnique({ where: { id: announcementId } });
+    if (!announcement) throw new ActionError("公告不存在");
+    const { user } = await requireProjectAccess(announcement.projectId);
+    if (announcement.authorId !== user.id && !isAdmin(user)) throw new ActionError("只有发布人或管理员可以编辑");
+    const data = parseInput(announcementSchema, input);
+
+    await db.announcement.update({
+      where: { id: announcementId },
+      data: { title: data.title, body: data.body, ...(isAdmin(user) ? { pinned: data.pinned } : {}), editedAt: new Date() },
+    });
+    publishProjectChange(announcement.projectId);
+    refresh();
+  });
+}
+
 export async function setAnnouncementPinned(announcementId: string, pinned: boolean) {
   return runAction(async () => {
     const announcement = await db.announcement.findUnique({ where: { id: announcementId } });

@@ -1,9 +1,9 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
+import { KeyRoundIcon, PlusIcon, Trash2Icon, UserCheckIcon, UserXIcon } from "lucide-react";
 import { useState } from "react";
 
-import { ConfirmButton } from "@/components/shared/confirm-button";
+import { ActionMenu } from "@/components/shared/action-menu";
 import { PageHeader } from "@/components/shared/page-header";
 import { ProjectDot } from "@/components/shared/project-dot";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -108,55 +108,48 @@ export function AccountsTable({ accounts, projects, currentUserId, appUrl }: Pro
                     <Button variant="ghost" size="sm" onClick={() => setDialog({ account: a })}>
                       编辑
                     </Button>
-                    <ConfirmButton
-                      trigger={
-                        <Button variant="ghost" size="sm" disabled={reset.pending}>
-                          重置密码
-                        </Button>
-                      }
-                      title={`重置 ${a.name} 的密码？`}
-                      description="会生成新的临时密码，对方的所有登录会失效，下次登录需要修改密码。"
-                      confirmLabel="重置"
-                      onConfirm={() => reset.run(a.id)}
+                    <ActionMenu
+                      label={`${a.name} 的账号操作`}
+                      items={[
+                        {
+                          label: "重置密码",
+                          icon: KeyRoundIcon,
+                          onSelect: () => reset.run(a.id),
+                          confirm: {
+                            title: `重置 ${a.name} 的密码？`,
+                            description: "会生成新的临时密码，对方的所有登录会失效，下次登录需要修改密码。",
+                            confirmLabel: "重置",
+                          },
+                        },
+                        { label: "启用账号", icon: UserCheckIcon, hidden: self || !disabled, onSelect: () => toggle.run(a.id, "ACTIVE") },
+                        {
+                          label: "停用账号",
+                          icon: UserXIcon,
+                          destructive: true,
+                          hidden: self || disabled,
+                          onSelect: () => toggle.run(a.id, "DISABLED"),
+                          confirm: {
+                            title: `停用 ${a.name} 的账号？`,
+                            description: "停用后该账号无法登录，但其任务、帖子等历史记录会保留；重新启用即可恢复。",
+                            confirmLabel: "停用",
+                          },
+                        },
+                        {
+                          label: "删除账号",
+                          icon: Trash2Icon,
+                          destructive: true,
+                          hidden: self,
+                          disabled: hasRecords,
+                          hint: hasRecords ? "已有协作记录，只能停用" : undefined,
+                          onSelect: () => remove.run(a.id),
+                          confirm: {
+                            title: `删除 ${a.name} 的账号？`,
+                            description: "该账号还没有任何协作记录，删除后会从所有项目中移除，且无法恢复。",
+                            confirmLabel: "删除",
+                          },
+                        },
+                      ]}
                     />
-                    {!self &&
-                      (disabled ? (
-                        <Button variant="ghost" size="sm" onClick={() => toggle.run(a.id, "ACTIVE")}>
-                          启用
-                        </Button>
-                      ) : (
-                        <ConfirmButton
-                          trigger={
-                            <Button variant="ghost" size="sm">
-                              停用
-                            </Button>
-                          }
-                          title={`停用 ${a.name} 的账号？`}
-                          description="停用后该账号无法登录，但其任务、帖子等历史记录会保留；重新启用即可恢复。"
-                          confirmLabel="停用"
-                          destructive
-                          onConfirm={() => toggle.run(a.id, "DISABLED")}
-                        />
-                      ))}
-                    {!self &&
-                      (hasRecords ? (
-                        <Button variant="ghost" size="sm" disabled title="已有任务、帖子等协作记录，只能停用">
-                          删除
-                        </Button>
-                      ) : (
-                        <ConfirmButton
-                          trigger={
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                              删除
-                            </Button>
-                          }
-                          title={`删除 ${a.name} 的账号？`}
-                          description="该账号还没有任何协作记录，删除后会从所有项目中移除，且无法恢复。"
-                          confirmLabel="删除"
-                          destructive
-                          onConfirm={() => remove.run(a.id)}
-                        />
-                      ))}
                   </TableCell>
                 </TableRow>
               );

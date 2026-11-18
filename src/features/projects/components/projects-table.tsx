@@ -4,6 +4,7 @@ import { ArchiveIcon, ArchiveRestoreIcon, PlusIcon, SettingsIcon, Trash2Icon } f
 import Link from "next/link";
 import { useState } from "react";
 
+import { ActionMenu } from "@/components/shared/action-menu";
 import { PageHeader } from "@/components/shared/page-header";
 import { ProjectDot } from "@/components/shared/project-dot";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -14,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 import { setProjectArchived } from "../actions";
 import { CreateProjectDialog } from "./create-project-dialog";
-import { DeleteProjectButton } from "./delete-project-button";
+import { DeleteProjectDialog } from "./delete-project-dialog";
 
 type Row = {
   id: string;
@@ -36,6 +37,7 @@ type Props = {
 
 export function ProjectsTable({ projects, currentUserId, directory }: Props) {
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<Row | null>(null);
   const archive = useAction(setProjectArchived, { successMessage: "已更新项目状态" });
   const activeCount = projects.filter((p) => !p.archived).length;
 
@@ -95,19 +97,19 @@ export function ProjectsTable({ projects, currentUserId, directory }: Props) {
                       设置
                     </Link>
                   </Button>
-                  <Button variant="ghost" size="sm" disabled={archive.pending} onClick={() => archive.run(p.id, !p.archived)}>
-                    {p.archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
-                    {p.archived ? "取消归档" : "归档"}
-                  </Button>
-                  <DeleteProjectButton
-                    project={p}
-                    summary={`${p.counts.tasks} 个任务、${p.counts.requirements} 条需求、${p.counts.topics} 个帖子、${p.counts.materials} 份材料`}
-                    trigger={
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                        <Trash2Icon />
-                        删除
-                      </Button>
-                    }
+                  <ActionMenu
+                    label={`${p.name} 的操作`}
+                    items={[
+                      {
+                        label: p.archived ? "取消归档" : "归档项目",
+                        icon: p.archived ? ArchiveRestoreIcon : ArchiveIcon,
+                        onSelect: () => archive.run(p.id, !p.archived),
+                        confirm: p.archived
+                          ? undefined
+                          : { title: `归档「${p.name}」？`, description: "归档后项目对成员隐藏，数据完整保留，可以随时取消归档。", confirmLabel: "归档" },
+                      },
+                      { label: "删除项目", icon: Trash2Icon, destructive: true, onSelect: () => setDeleting(p) },
+                    ]}
                   />
                 </TableCell>
               </TableRow>
@@ -123,6 +125,14 @@ export function ProjectsTable({ projects, currentUserId, directory }: Props) {
         </Table>
       </div>
 
+      {deleting && (
+        <DeleteProjectDialog
+          project={deleting}
+          summary={`${deleting.counts.tasks} 个任务、${deleting.counts.requirements} 条需求、${deleting.counts.topics} 个帖子、${deleting.counts.materials} 份材料`}
+          open
+          onOpenChange={(open) => !open && setDeleting(null)}
+        />
+      )}
       <CreateProjectDialog open={creating} onOpenChange={setCreating} currentUserId={currentUserId} directory={directory} />
     </>
   );

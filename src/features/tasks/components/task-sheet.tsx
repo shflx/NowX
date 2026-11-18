@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { ConfirmButton } from "@/components/shared/confirm-button";
+import { ActionMenu } from "@/components/shared/action-menu";
 import { DocLink } from "@/components/shared/doc-link";
 import { Markdown } from "@/components/shared/markdown";
 import { memberOptions, orNull, priorityOptions, statusOptions } from "@/components/shared/option-renderers";
@@ -89,21 +89,23 @@ export function TaskSheet({ task, options, currentUser }: Props) {
               <LinkIcon />
               复制链接
             </Button>
-            {task.canDelete && (
-              <ConfirmButton
-                trigger={
-                  <Button variant="ghost" size="sm">
-                    <Trash2Icon />
-                    删除
-                  </Button>
-                }
-                title={`删除 ${task.code}？`}
-                description={task.subtasks.length ? "子任务和评论会一并删除，且无法恢复。" : "评论会一并删除，且无法恢复。"}
-                confirmLabel="删除"
-                destructive
-                onConfirm={() => remove.run(task.id)}
-              />
-            )}
+            <ActionMenu
+              label="任务操作"
+              items={[
+                {
+                  label: "删除任务",
+                  icon: Trash2Icon,
+                  destructive: true,
+                  hidden: !task.canDelete,
+                  onSelect: () => remove.run(task.id),
+                  confirm: {
+                    title: `删除 ${task.code}？`,
+                    description: task.subtasks.length ? "子任务和评论会一并删除，且无法恢复。" : "评论会一并删除，且无法恢复。",
+                    confirmLabel: "删除",
+                  },
+                },
+              ]}
+            />
           </div>
         </SheetHeader>
 

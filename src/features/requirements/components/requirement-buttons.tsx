@@ -4,7 +4,7 @@ import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ComponentProps, useState } from "react";
 
-import { ConfirmButton } from "@/components/shared/confirm-button";
+import { ActionMenu } from "@/components/shared/action-menu";
 import { Button } from "@/components/ui/button";
 import { useAction } from "@/hooks/use-action";
 
@@ -37,25 +37,28 @@ export function EditRequirementButton(props: FormProps & { canDelete: boolean })
 
   return (
     <>
-      {canDelete && (
-        <ConfirmButton
-          trigger={
-            <Button variant="ghost">
-              <Trash2Icon />
-              删除
-            </Button>
-          }
-          title={`删除需求 ${props.requirement?.code}？`}
-          description="外部文档链接会一并删除，关联的材料和讨论会保留。"
-          confirmLabel="删除"
-          destructive
-          onConfirm={() => remove.run(props.requirement!.id)}
-        />
-      )}
       <Button variant="outline" onClick={() => setOpen(true)}>
         <PencilIcon />
         编辑
       </Button>
+      <ActionMenu
+        label="需求操作"
+        size="icon"
+        items={[
+          {
+            label: "删除需求",
+            icon: Trash2Icon,
+            destructive: true,
+            hidden: !canDelete,
+            onSelect: () => remove.run(props.requirement!.id),
+            confirm: {
+              title: `删除需求 ${props.requirement?.code}？`,
+              description: "外部文档链接会一并删除，关联的材料和讨论会保留。",
+              confirmLabel: "删除",
+            },
+          },
+        ]}
+      />
       {open && <RequirementFormDialog {...formProps} onClose={() => setOpen(false)} />}
     </>
   );
