@@ -15,8 +15,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAction } from "@/hooks/use-action";
 
 import { createTask } from "../actions";
+import { laterThanRequirement, requirementCycle } from "./cycle-hint";
 import { cycleOptions, requirementOptions } from "./task-option-builders";
 import type { TaskFormOptions } from "./types";
+
+/** 已结束的周期不能再放入新任务 */
+const plannable = <T extends { status: string }>(cycle: T | null) => (cycle && cycle.status !== "ENDED" ? cycle : null);
 
 type Props = TaskFormOptions & {
   currentUserId: string;
@@ -29,11 +33,14 @@ type Props = TaskFormOptions & {
 export function TaskFormDialog({ projectId, projectKey, members, cycles, requirements, currentUserId, defaultRequirementId, openAfterCreate, onClose }: Props) {
   const router = useRouter();
   const active = cycles.find((c) => c.status === "ACTIVE");
+  // 默认周期：需求的计划交付周期（未结束时），否则为进行中的周期
+  const initialCycle = plannable(requirementCycle(defaultRequirementId ?? null, requirements, cycles)) ?? active;
   const [requirementId, setRequirementId] = useState(defaultRequirementId ?? NONE);
-  const [cycleId, setCycleId] = useState(active?.id ?? NONE);
+  const [cycleId, setCycleId] = useState(initialCycle?.id ?? NONE);
   const [assigneeId, setAssigneeId] = useState(members.some((m) => m.id === currentUserId) ? currentUserId : NONE);
   const [priority, setPriority] = useState("MEDIUM");
-  const [dueDate, setDueDate] = useState(active?.endDate ?? "");
+  const [dueDate, setDueDate] = useState(initialCycle?.endDate ?? "");
+  const late = laterThanRequirement(orNull(cycleId), orNull(requirementId), requirements, cycles);
 
   const create = useAction(createTask.bind(null, projectId), {
     successMessage: ({ code }) => `已创建 ${code}`,
@@ -58,6 +65,13 @@ export function TaskFormDialog({ projectId, projectKey, members, cycles, require
   }
 
   // 切换周期时，截止日期默认跟随周期结束日
+  // 选择需求后，周期跟随需求的计划交付周期
+  function changeRequirement(id: string) {
+    setRequirementId(id);
+    const target = plannable(requirementCycle(orNull(id), requirements, cycles));
+    if (target) changeCycle(target.id);
+  }
+
   function changeCycle(id: string) {
     setCycleId(id);
     const cycle = cycles.find((c) => c.id === id);
@@ -76,9 +90,9 @@ export function TaskFormDialog({ projectId, projectKey, members, cycles, require
           </FormField>
           <div className="grid grid-cols-2 gap-3">
             <FormField label="来源需求">
-              <SearchSelect options={requirementOptions(requirements)} value={requirementId} onValueChange={setRequirementId} />
+              <SearchSelect options={requirementOptions(requirements)} value={requirementId} onValueChange={changeRequirement} />
             </FormField>
-            <FormField label="周期">
+            <FormField label="周期" description={late && <span className="text-warn">晚于需求的计划交付周期「{late.name}」，可能赶不上交付</span>}>
               <OptionSelect options={cycleOptions(cycles)} value={cycleId} onValueChange={changeCycle} className="w-full" />
             </FormField>
             <FormField label="负责人">

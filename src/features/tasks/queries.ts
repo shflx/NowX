@@ -78,7 +78,7 @@ export async function getTaskFormOptions(projectId: string) {
       orderBy: { startDate: "asc" },
       select: { id: true, name: true, status: true, startDate: true, endDate: true },
     }),
-    db.requirement.findMany({ where: { projectId }, orderBy: { number: "desc" }, select: { id: true, number: true, title: true } }),
+    db.requirement.findMany({ where: { projectId }, orderBy: { number: "desc" }, select: { id: true, number: true, title: true, cycleId: true } }),
   ]);
   return { cycles, requirements };
 }

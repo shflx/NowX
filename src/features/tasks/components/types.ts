@@ -4,7 +4,13 @@ export type MemberLite = { id: string; name: string; color: string };
 
 export type CycleLite = { id: string; name: string; status: "PLANNED" | "ACTIVE" | "ENDED"; startDate: string; endDate: string };
 
-export type RequirementLite = { id: string; number: number; title: string };
+export type RequirementLite = {
+  id: string;
+  number: number;
+  title: string;
+  /** 需求的计划交付周期 */
+  cycleId?: string | null;
+};
 
 export type TaskFormOptions = {
   projectId: string;

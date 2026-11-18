@@ -26,6 +26,7 @@ import { useAction } from "@/hooks/use-action";
 
 import { addTaskComment, createSubtask, deleteTask, updateTask } from "../actions";
 import { DueDate } from "./task-card";
+import { laterThanRequirement } from "./cycle-hint";
 import { cycleOptions, requirementOptions } from "./task-option-builders";
 import type { MemberLite, TaskFormOptions } from "./types";
 import { useTaskLink } from "./use-task-link";
@@ -61,6 +62,7 @@ export function TaskSheet({ task, options, currentUser }: Props) {
   const link = useTaskLink();
   const close = () => router.push(link(null), { scroll: false });
   const { projectKey, members, cycles, requirements } = options;
+  const lateFor = task.status === "DONE" || task.status === "CANCELED" ? null : laterThanRequirement(task.cycleId, task.requirementId, requirements, cycles);
 
   const update = useAction(updateTask.bind(null, task.id));
   const save = (patch: Record<string, unknown>) => update.run(patch);
@@ -152,6 +154,7 @@ export function TaskSheet({ task, options, currentUser }: Props) {
                 onValueChange={(v) => save({ cycleId: orNull(v) })}
               />
               {task.carriedFrom && <StatusBadge tone="warn">由「{task.carriedFrom}」顺延</StatusBadge>}
+              {lateFor && <StatusBadge tone="warn">晚于需求的交付周期「{lateFor.name}」</StatusBadge>}
             </dd>
             <dt className="text-muted-foreground">来源需求</dt>
             <dd className="col-span-3 flex min-w-0 items-center gap-2">
