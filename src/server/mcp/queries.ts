@@ -66,6 +66,11 @@ function numberFor(value: number | string, prefix: string) {
   return number <= 2_147_483_647 ? number : undefined;
 }
 
+// PostgreSQL 的 ILIKE 会解释通配符，关键词搜索需要按字面匹配。
+function titleContains(q: string) {
+  return { contains: q.replace(/[\\%_]/g, (character) => `\\${character}`), mode: "insensitive" } as const;
+}
+
 function cycleFilter(cycle: string | undefined, projectId: string) {
   if (cycle === "active") return { cycle: { status: "ACTIVE", projectId } } as const;
   if (cycle === "backlog") return { cycleId: null };
@@ -122,7 +127,7 @@ export async function listTasks(user: CurrentUser, input: ListInput & { status?:
       ...cycleFilter(cycle, project.id),
       status,
       assigneeId: assigneeId === "me" ? user.id : assigneeId,
-      OR: q ? [{ title: { contains: q, mode: "insensitive" } }, ...(number ? [{ number }] : [])] : undefined,
+      OR: q ? [{ title: titleContains(q) }, ...(number ? [{ number }] : [])] : undefined,
     },
     select: taskFields,
     orderBy: { number: "asc" },
@@ -168,7 +173,7 @@ export async function listRequirements(
       ...cycleFilter(cycle, project.id),
       status,
       ownerId: ownerId === "me" ? user.id : ownerId,
-      OR: q ? [{ title: { contains: q, mode: "insensitive" } }, ...(number ? [{ number }] : [])] : undefined,
+      OR: q ? [{ title: titleContains(q) }, ...(number ? [{ number }] : [])] : undefined,
     },
     select: requirementFields,
     orderBy: { number: "desc" },

@@ -66,7 +66,7 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
         docs: { create: { type: "OTHER", name: "登录设计", url: "https://example.com/login" } },
       },
     });
-    await db.requirement.create({ data: { projectId: project.id, number: 2, title: "待排期需求" } });
+    await db.requirement.create({ data: { projectId: project.id, number: 2, title: "待排期需求 100%" } });
     const task = await db.task.create({
       data: {
         projectId: project.id,
@@ -82,7 +82,7 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
       },
     });
     await db.task.create({
-      data: { projectId: project.id, number: 2, title: "子任务", creatorId: member.id, parentId: task.id },
+      data: { projectId: project.id, number: 2, title: "子任务 release_1", creatorId: member.id, parentId: task.id },
     });
 
     async function connect(user: CurrentUser) {
@@ -157,7 +157,7 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
       priority: "HIGH",
       assignee: { id: member.id },
       requirement: { code: "R-1" },
-      subtasks: [{ code: `${joined}-2`, title: "子任务" }],
+      subtasks: [{ code: `${joined}-2`, title: "子任务 release_1" }],
     });
   });
 
@@ -178,6 +178,14 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
       docs: [{ name: "登录设计", url: "https://example.com/login" }],
       tasks: [{ code: `${joined}-1` }],
     });
+  });
+
+  it.each([
+    ["list_tasks", "_"],
+    ["list_requirements", "%"],
+  ])("%s 按字面匹配标题中的 %s", async (name, q) => {
+    const result = await memberClient.callTool({ name, arguments: { projectKey: joined, q } });
+    expect(result.structuredContent).toEqual({ items: [expect.objectContaining({ number: 2 })], nextOffset: null });
   });
 
   it("四个记录工具统一隐藏无权、归档和不存在的项目", async () => {
