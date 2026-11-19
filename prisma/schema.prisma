@@ -42,6 +42,7 @@ model User {
   updatedAt          DateTime   @updatedAt
 
   sessions          Session[]
+  accessTokens      PersonalAccessToken[]
   memberships       ProjectMember[]
   assignedTasks     Task[]          @relation("TaskAssignee")
   createdTasks      Task[]          @relation("TaskCreator")
@@ -62,6 +63,23 @@ model Session {
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// 个人访问令牌：明文仅在创建时返回，库中只保存摘要与展示前缀
+model PersonalAccessToken {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  prefix     String
+  digest     String    @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

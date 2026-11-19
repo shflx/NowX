@@ -7,6 +7,7 @@ import { AVATAR_COLORS } from "@/lib/constants";
 import { requireAdmin } from "@/server/auth/dal";
 import { generatePassword } from "@/lib/password";
 import { hashPassword } from "@/server/auth/password";
+import { revokeUserPersonalAccessTokens } from "@/server/auth/personal-access-token";
 import { deleteUserSessions } from "@/server/auth/session";
 import { runAction } from "@/server/action";
 import { db, type Tx } from "@/server/db";
@@ -75,9 +76,11 @@ export async function resetAccountPassword(userId: string) {
   return runAction<Credentials>(async () => {
     await requireAdmin();
     const password = generatePassword();
-    const user = await db.user.update({
-      where: { id: userId },
-      data: { passwordHash: await hashPassword(password), mustChangePassword: true },
+    const passwordHash = await hashPassword(password);
+    const user = await db.$transaction(async (tx) => {
+      const updated = await tx.user.update({ where: { id: userId }, data: { passwordHash, mustChangePassword: true } });
+      await revokeUserPersonalAccessTokens(tx, userId);
+      return updated;
     });
     // 旧密码登录的会话全部失效
     await deleteUserSessions(userId);
@@ -91,7 +94,10 @@ export async function setAccountStatus(userId: string, status: "ACTIVE" | "DISAB
     const admin = await requireAdmin();
     if (userId === admin.id) throw new ActionError("不能停用自己的账号");
 
-    await db.user.update({ where: { id: userId }, data: { status } });
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: userId }, data: { status } });
+      if (status === "DISABLED") await revokeUserPersonalAccessTokens(tx, userId);
+    });
     if (status === "DISABLED") await deleteUserSessions(userId);
     refresh();
   });
@@ -130,7 +136,7 @@ export async function deleteAccount(userId: string) {
       throw new ActionError(`${user.name} 已有任务、帖子等协作记录，不能删除；如不再使用，请停用该账号`);
     }
 
-    // 会话、项目成员关系、通知随账号级联删除；负责的需求、指定回答的帖子置空
+    // 会话、访问令牌、项目成员关系、通知随账号级联删除；负责的需求、指定回答的帖子置空
     await db.user.delete({ where: { id: userId } });
     refresh();
     return { name: user.name };

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { type ActionResult, ActionError, parseInput } from "@/lib/action-result";
 import { getCurrentUser } from "@/server/auth/dal";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
+import { revokeUserPersonalAccessTokens } from "@/server/auth/personal-access-token";
 import { createSession, deleteCurrentSession, deleteUserSessions } from "@/server/auth/session";
 import { runAction } from "@/server/action";
 import { db } from "@/server/db";
@@ -68,9 +69,14 @@ export async function changePassword(_prev: ActionResult | null, formData: FormD
       throw new ActionError("当前密码不正确", { currentPassword: "当前密码不正确" });
     }
 
-    await db.user.update({
-      where: { id: user.id },
-      data: { passwordHash: await hashPassword(input.newPassword), mustChangePassword: false },
+    const passwordHash = await hashPassword(input.newPassword);
+    await db.$transaction(async (tx) => {
+      const { count } = await tx.user.updateMany({
+        where: { id: user.id, status: "ACTIVE", passwordHash: user.passwordHash },
+        data: { passwordHash, mustChangePassword: false },
+      });
+      if (!count) throw new ActionError("账号状态或密码已变更，请重新登录");
+      await revokeUserPersonalAccessTokens(tx, user.id);
     });
     // 改密后让其他设备上的会话失效
     await deleteUserSessions(user.id, true);
