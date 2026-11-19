@@ -1,6 +1,5 @@
 import "server-only";
 
-import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 
 import { behindPlan, countByStatus, summarize, timeline } from "@/features/cycles/stats";
@@ -12,6 +11,8 @@ import type { CurrentUser } from "@/server/auth/dal";
 import { today } from "@/server/config";
 import { db } from "@/server/db";
 
+import { defineTool } from "./tool-definition";
+
 type Scope = { user: CurrentUser; project: { id: string; key: string; name: string } };
 
 // 项目助手可用的工具：全部只读，且查询范围固定在当前项目、权限由调用方保证。
@@ -21,7 +22,7 @@ export function buildAssistantTools({ user, project }: Scope) {
   const taskLink = (n: number) => `/projects/${project.key}/tasks?task=${n}&cycle=all`;
   const now = () => today();
 
-  const listTasks = betaZodTool({
+  const listTasks = defineTool({
     name: "list_tasks",
     description:
       "查询当前项目的任务。可按负责人（me 表示提问者本人，或成员姓名）、状态范围（open 未完成 / overdue 已逾期 / done 已完成 / all 全部）、周期范围（active 进行中的周期 / all 全部）筛选。只返回顶层任务。",
@@ -79,7 +80,7 @@ export function buildAssistantTools({ user, project }: Scope) {
     },
   });
 
-  const cycleProgress = betaZodTool({
+  const cycleProgress = defineTool({
     name: "get_cycle_progress",
     description: "查询当前项目进行中周期的进度：完成率、剩余任务、剩余天数、与理想燃尽线相比落后多少、各成员的完成情况，以及计划在本期交付的需求及其状态。",
     inputSchema: z.object({}),
@@ -121,7 +122,7 @@ export function buildAssistantTools({ user, project }: Scope) {
     },
   });
 
-  const requirement = betaZodTool({
+  const requirement = defineTool({
     name: "get_requirement",
     description: "按编号（如 R-101）或标题关键字查询需求，返回需求状态、计划交付周期、外部文档链接和拆解出的任务。",
     inputSchema: z.object({ query: z.string().describe("需求编号如 R-101，或标题关键字") }),
@@ -161,7 +162,7 @@ export function buildAssistantTools({ user, project }: Scope) {
     },
   });
 
-  const topics = betaZodTool({
+  const topics = defineTool({
     name: "list_topics",
     description: "查询交流区的帖子：waiting_for_me 等提问者回答的帖子，open 所有待回答的帖子，faq 精选 FAQ。",
     inputSchema: z.object({ filter: z.enum(["waiting_for_me", "open", "faq"]) }),
@@ -187,7 +188,7 @@ export function buildAssistantTools({ user, project }: Scope) {
     },
   });
 
-  const search = betaZodTool({
+  const search = defineTool({
     name: "search_project",
     description: "在当前项目中按关键字搜索任务、需求、交流区帖子（含回复）和材料名称。用于回答业务或技术问题前查找线索。",
     inputSchema: z.object({ query: z.string().min(1).describe("关键字，尽量简短，如「手机号」「测试环境」") }),
@@ -202,7 +203,7 @@ export function buildAssistantTools({ user, project }: Scope) {
     },
   });
 
-  const topicDetail = betaZodTool({
+  const topicDetail = defineTool({
     name: "read_topic",
     description: "读取交流区某个帖子的正文和全部回复（含被采纳的答案）。link 来自 list_topics 或 search_project 的结果。",
     inputSchema: z.object({ link: z.string().describe("帖子链接，如 /projects/CRM/discussions/xxx") }),
@@ -223,7 +224,7 @@ export function buildAssistantTools({ user, project }: Scope) {
     },
   });
 
-  const members = betaZodTool({
+  const members = defineTool({
     name: "list_members",
     description: "列出当前项目的成员（姓名与职能）。",
     inputSchema: z.object({}),

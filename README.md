@@ -20,7 +20,7 @@ pnpm db:demo                  # 可选：生成演示数据，账号 linzhou（�
 pnpm dev                      # http://localhost:3000
 ```
 
-项目助手需要在 `.env` 中配置 `ANTHROPIC_API_KEY`，不配置时其余功能不受影响。
+项目助手需要在 `.env` 中配置 `ASSISTANT_API_KEY`，不配置时不显示助手入口，其余功能不受影响。`ASSISTANT_PROTOCOL` 选择接口协议：`anthropic`（默认，模型默认 `claude-opus-5-5`）或 `openai`（OpenAI 及兼容 Chat Completions 的服务，需填写 `ASSISTANT_MODEL`）；经代理或兼容服务访问时填写 `ASSISTANT_BASE_URL`。修改后重启应用生效。
 
 ## 远程 MCP
 

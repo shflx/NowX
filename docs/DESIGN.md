@@ -84,10 +84,10 @@ Activity        操作日志
 
 - 入口：可拖动的悬浮按钮（默认在右下角），点击在按钮旁弹出对话框；交流区可 @助手。
 - 作用范围：当前登录用户 + 当前项目，**只读**。
-- 实现：Claude API（`claude-opus-5-5`，低思考强度）+ SDK Tool Runner，工具均为只读查询，范围固定为当前项目：
+- 实现：通过 `.env` 选择接口协议——Anthropic Messages API（默认 `claude-opus-5-5`，低思考强度，SDK Tool Runner）或 OpenAI Chat Completions（含兼容服务，自行驱动工具调用循环）；工具与协议无关，均为只读查询，范围固定为当前项目：
   - `list_tasks`（按负责人 / 状态 / 周期）、`get_cycle_progress`、`get_requirement`
   - `list_topics`、`read_topic`、`search_project`、`list_members`
-- 未配置 `ANTHROPIC_API_KEY` 时助手入口提示不可用，其余功能不受影响；每人每 10 分钟最多 30 次提问。
+- 未配置 `ASSISTANT_API_KEY` 时不显示助手入口，其余功能不受影响；每人每 10 分钟最多 30 次提问。
 - 回答中引用的任务 / 帖子可点击跳转。
 - 发帖时根据标题推荐相似 FAQ，减少重复提问。
 
