@@ -77,7 +77,9 @@ export function AccessTokenManager({ tokens, timeZone }: Props) {
             <TableBody>
               {tokens.map((token) => (
                 <TableRow key={token.id}>
-                  <TableCell>{token.name}</TableCell>
+                  <TableCell>
+                    <span className="block max-w-64 whitespace-normal wrap-anywhere">{token.name}</span>
+                  </TableCell>
                   <TableCell className="font-mono">{token.prefix}…</TableCell>
                   <TableCell>{formatDateTime(token.expiresAt, timeZone)}</TableCell>
                   <TableCell>{token.lastUsedAt ? formatDateTime(token.lastUsedAt, timeZone) : "从未使用"}</TableCell>

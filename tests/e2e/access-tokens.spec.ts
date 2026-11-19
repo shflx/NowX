@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import { login, sessionAs, uniq } from "./helpers";
 
 test("个人令牌只在创建时显示明文，且只有本人能管理", async ({ browser, page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("/account/access-tokens");
   await expect(page).toHaveURL("/login");
   await login(page, "chenxiao");
@@ -10,7 +11,7 @@ test("个人令牌只在创建时显示明文，且只有本人能管理", async
   await page.getByRole("menuitem", { name: "个人访问令牌" }).click();
   await expect(page.getByText("Authorization: Bearer <token>")).toBeVisible();
 
-  const name = `外部 Agent ${uniq()}`;
+  const name = `外部 Agent ${uniq()}`.padEnd(80, "A");
   await page.getByLabel("令牌名称").fill(name);
   await page.getByRole("button", { name: "创建令牌" }).click();
   const dialog = page.getByRole("dialog", { name: "令牌已创建" });
@@ -32,8 +33,13 @@ test("个人令牌只在创建时显示明文，且只有本人能管理", async
     await other.context.close();
   }
 
-  await row.getByRole("button", { name: "吊销" }).click();
-  await page.getByRole("button", { name: "确认吊销" }).click();
+  const revoke = row.getByRole("button", { name: "吊销" });
+  await expect(revoke).toBeInViewport({ ratio: 1 });
+  await revoke.click();
+  const confirmation = page.getByRole("alertdialog");
+  await expect(confirmation.getByRole("heading")).toHaveText(`吊销令牌「${name}」？`);
+  await expect.poll(() => confirmation.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await confirmation.getByRole("button", { name: "确认吊销" }).click();
   await expect(row).toContainText("已吊销");
 });
 
