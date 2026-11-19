@@ -2,9 +2,14 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { POST } from "./route";
 
+const { recordUse } = vi.hoisted(() => ({ recordUse: vi.fn(async (id: string) => ({ id })) }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/server/auth/personal-access-token", () => ({
-  authenticatePersonalAccessToken: async (authorization: string) => ({ id: authorization }),
+  findValidPersonalAccessToken: async (authorization: string) => {
+    const [userId, id] = authorization.replace("Bearer ", "").split(":");
+    return { id, userId };
+  },
+  recordPersonalAccessTokenUse: recordUse,
 }));
 vi.mock("@/server/mcp/tools", async () => {
   const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
@@ -29,13 +34,15 @@ it("按账号限制 POST 请求，到期恢复并返回重试时间", async () =
     );
 
   for (let i = 0; i < 120; i++) {
-    expect((await ping("account-one")).status).toBe(200);
+    expect((await ping("account-one:token-one")).status).toBe(200);
   }
-  const limited = await ping("account-one");
+  const limited = await ping("account-one:token-two");
   expect(limited.status).toBe(429);
   expect(limited.headers.get("retry-after")).toBe("60");
-  expect((await ping("account-two")).status).toBe(200);
+  expect(recordUse).toHaveBeenCalledTimes(120);
+  expect(recordUse).not.toHaveBeenCalledWith("token-two");
+  expect((await ping("account-two:token-three")).status).toBe(200);
 
   now.mockReturnValue(70_000);
-  expect((await ping("account-one")).status).toBe(200);
+  expect((await ping("account-one:token-two")).status).toBe(200);
 });

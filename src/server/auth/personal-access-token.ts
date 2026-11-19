@@ -58,21 +58,29 @@ export function revokeUserPersonalAccessTokens(tx: Tx, userId: string) {
   return tx.personalAccessToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
 }
 
-export async function authenticatePersonalAccessToken(authorization: string | null): Promise<CurrentUser | null> {
+function validTokenWhere(now: Date) {
+  return { revokedAt: null, expiresAt: { gt: now }, user: activeUser };
+}
+
+export async function findValidPersonalAccessToken(authorization: string | null) {
   const token = authorization?.match(/^Bearer (nowx_pat_[A-Za-z0-9_-]{43})$/i)?.[1];
   if (!token) return null;
 
+  return db.personalAccessToken.findUnique({
+    where: { digest: digestOf(token), ...validTokenWhere(new Date()) },
+    select: { id: true, userId: true },
+  });
+}
+
+/** 通过入口检查后才记录使用，并以此时的账号权限处理请求。 */
+export async function recordPersonalAccessTokenUse(id: string): Promise<CurrentUser | null> {
   const now = new Date();
-  const where = { digest: digestOf(token), revokedAt: null, expiresAt: { gt: now }, user: activeUser };
-  const record = await db.personalAccessToken.findUnique({
-    where,
+  const [record] = await db.personalAccessToken.updateManyAndReturn({
+    where: { id, ...validTokenWhere(now) },
+    data: { lastUsedAt: now },
     select: {
       user: { select: { id: true, login: true, name: true, title: true, role: true, color: true, mustChangePassword: true } },
     },
   });
-  if (!record) return null;
-
-  // 查询后若令牌已被吊销，则不记录使用，也不继续处理请求。
-  const { count } = await db.personalAccessToken.updateMany({ where, data: { lastUsedAt: now } });
-  return count ? record.user : null;
+  return record?.user ?? null;
 }

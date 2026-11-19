@@ -62,7 +62,8 @@ describe.skipIf(!testDatabaseUrl)("个人访问令牌（PostgreSQL）", () => {
     expect(stored.digest).toBe(createHash("sha256").update(token).digest("hex"));
     expect(stored.prefix).toBe(token.slice(0, 17));
     expect(JSON.stringify(stored).includes(token)).toBe(false);
-    expect(await service.authenticatePersonalAccessToken(`bearer ${token}`)).toEqual({
+    expect(await service.findValidPersonalAccessToken(`bearer ${token}`)).toEqual({ id, userId: user.id });
+    expect(await service.recordPersonalAccessTokenUse(id)).toEqual({
       id: user.id,
       login: user.login,
       name: user.name,
@@ -76,7 +77,16 @@ describe.skipIf(!testDatabaseUrl)("个人访问令牌（PostgreSQL）", () => {
     ]);
     expect(await service.listPersonalAccessTokens("another-owner")).toEqual([]);
     expect(await service.revokePersonalAccessToken("another-owner", id)).toEqual({ count: 0 });
-    expect(await service.authenticatePersonalAccessToken(`Bearer ${token}`)).not.toBeNull();
+    expect(await service.findValidPersonalAccessToken(`Bearer ${token}`)).not.toBeNull();
+  });
+
+  it("不支持的 HTTP 方法不更新令牌最近使用时间", async () => {
+    const { GET } = await import("@/app/api/mcp/route");
+    const { id, token } = await service.createPersonalAccessToken(user.id, "Agent");
+    const response = await GET(new Request("http://localhost/api/mcp", { headers: { Authorization: `Bearer ${token}` } }));
+
+    expect(response.status).toBe(405);
+    expect(await service.listPersonalAccessTokens(user.id)).toEqual([expect.objectContaining({ id, lastUsedAt: null })]);
   });
 
   it.each(["expired", "revoked", "disabled", "password-required"])("拒绝状态为 %s 的令牌", async (reason) => {
@@ -85,7 +95,17 @@ describe.skipIf(!testDatabaseUrl)("个人访问令牌（PostgreSQL）", () => {
     if (reason === "revoked") await service.revokePersonalAccessToken(user.id, id);
     if (reason === "disabled") await db.user.update({ where: { id: user.id }, data: { status: "DISABLED" } });
     if (reason === "password-required") await db.user.update({ where: { id: user.id }, data: { mustChangePassword: true } });
-    expect(await service.authenticatePersonalAccessToken(`Bearer ${token}`)).toBeNull();
+    expect(await service.findValidPersonalAccessToken(`Bearer ${token}`)).toBeNull();
+    expect(await service.recordPersonalAccessTokenUse(id)).toBeNull();
+  });
+
+  it("以记录使用时的账号角色处理请求", async () => {
+    await db.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+    const { id, token } = await service.createPersonalAccessToken(user.id, "Agent");
+    expect(await service.findValidPersonalAccessToken(`Bearer ${token}`)).toEqual({ id, userId: user.id });
+
+    await db.user.update({ where: { id: user.id }, data: { role: "MEMBER" } });
+    expect(await service.recordPersonalAccessTokenUse(id)).toMatchObject({ role: "MEMBER" });
   });
 
   it.each(["disable", "reset", "change"])("账号操作 %s 吊销全部旧令牌", async (operation) => {
@@ -107,7 +127,7 @@ describe.skipIf(!testDatabaseUrl)("个人访问令牌（PostgreSQL）", () => {
     await db.user.update({ where: { id: user.id }, data: { status: "ACTIVE", mustChangePassword: false } });
     expect((await service.listPersonalAccessTokens(user.id)).every((entry) => entry.revokedAt)).toBe(true);
     for (const { token } of [first, second]) {
-      expect(await service.authenticatePersonalAccessToken(`Bearer ${token}`)).toBeNull();
+      expect(await service.findValidPersonalAccessToken(`Bearer ${token}`)).toBeNull();
     }
   });
 });
