@@ -2,13 +2,12 @@ import { type ReactNode, Suspense } from "react";
 
 import { LiveUpdates } from "@/components/layout/live-updates";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AssistantLauncher } from "@/features/assistant/components/assistant-launcher";
 import { AssistantProvider } from "@/features/assistant/components/assistant-provider";
 
-import { SidebarSection, TopbarSection } from "./workspace-shell";
+import { AssistantSection, SidebarSection, TopbarSection } from "./workspace-shell";
 
 /**
- * 已登录页面的外壳。布局本身不读取会话：侧边栏、顶栏各自在 Suspense 中加载，
+ * 已登录页面的外壳。布局本身不读取会话：侧边栏、顶栏、助手入口各自在 Suspense 中加载，
  * 页面内容由各页面的 loading 边界流式渲染，导航时不会被外壳的数据请求阻塞。
  */
 export default function WorkspaceLayout({ children }: { children: ReactNode }) {
@@ -27,9 +26,8 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
-      {/* 助手对话框读取 URL 参数，需要在 Suspense 内 */}
       <Suspense>
-        <AssistantLauncher />
+        <AssistantSection />
       </Suspense>
       <Suspense>
         <LiveUpdates />
