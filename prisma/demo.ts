@@ -150,6 +150,19 @@ async function main() {
     await db.project.update({ where: { id: projectId }, data: { requirementSeq: seq } });
   }
 
+  // 计划交付周期：R-103 的权限点梳理等前置工作在第 2 期，计划在第 3 期交付；R-104 待排期
+  const plan: [{ id: string }, { id: string }][] = [
+    [r100, c1],
+    [r101, c2],
+    [r102, c2],
+    [r103, c3],
+    [r201, appCycle],
+    [r301, opsCycle],
+  ];
+  for (const [req, cyc] of plan) {
+    await db.requirement.update({ where: { id: req.id }, data: { cycleId: cyc.id } });
+  }
+
   // ---------------------------------------------------------------- 任务
   const taskSeq: Record<string, number> = {};
   type TaskInput = {

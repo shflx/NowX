@@ -81,12 +81,15 @@ export function buildAssistantTools({ user, project }: Scope) {
 
   const cycleProgress = betaZodTool({
     name: "get_cycle_progress",
-    description: "查询当前项目进行中周期的进度：完成率、剩余任务、剩余天数、与理想燃尽线相比落后多少，以及各成员的完成情况。",
+    description: "查询当前项目进行中周期的进度：完成率、剩余任务、剩余天数、与理想燃尽线相比落后多少、各成员的完成情况，以及计划在本期交付的需求及其状态。",
     inputSchema: z.object({}),
     run: async () => {
       const cycle = await db.cycle.findFirst({
         where: { projectId: project.id, status: "ACTIVE" },
-        include: { tasks: { where: { parentId: null }, select: { status: true, assignee: { select: { name: true } } } } },
+        include: {
+          tasks: { where: { parentId: null }, select: { status: true, assignee: { select: { name: true } } } },
+          requirements: { select: { number: true, title: true, status: true, tasks: { where: { parentId: null }, select: { status: true } } } },
+        },
       });
       if (!cycle) return JSON.stringify({ error: "当前项目没有进行中的周期" });
       const start = toDateString(cycle.startDate);
@@ -107,6 +110,12 @@ export function buildAssistantTools({ user, project }: Scope) {
         ...stats,
         behindPlan: behindPlan(stats.total, stats.remaining, start, end, now()),
         members: [...byMember.entries()].map(([name, tasks]) => ({ name, ...summarize(countByStatus(tasks)) })),
+        requirements: cycle.requirements.map((r) => ({
+          code: requirementCode(r.number),
+          title: r.title,
+          status: REQUIREMENT_STATUS_LABEL[r.status],
+          tasks: summarize(countByStatus(r.tasks)),
+        })),
         link: `/projects/${project.key}/cycles?cycle=${cycle.id}`,
       });
     },
@@ -114,7 +123,7 @@ export function buildAssistantTools({ user, project }: Scope) {
 
   const requirement = betaZodTool({
     name: "get_requirement",
-    description: "按编号（如 R-101）或标题关键字查询需求，返回需求状态、外部文档链接和拆解出的任务。",
+    description: "按编号（如 R-101）或标题关键字查询需求，返回需求状态、计划交付周期、外部文档链接和拆解出的任务。",
     inputSchema: z.object({ query: z.string().describe("需求编号如 R-101，或标题关键字") }),
     run: async ({ query }) => {
       const number = Number(query.replace(/^R-?/i, ""));
@@ -125,6 +134,7 @@ export function buildAssistantTools({ user, project }: Scope) {
         },
         include: {
           owner: { select: { name: true } },
+          cycle: { select: { name: true } },
           docs: true,
           tasks: { where: { parentId: null }, select: { number: true, title: true, status: true, assignee: { select: { name: true } } } },
         },
@@ -135,6 +145,7 @@ export function buildAssistantTools({ user, project }: Scope) {
         title: found.title,
         status: REQUIREMENT_STATUS_LABEL[found.status],
         owner: found.owner?.name ?? null,
+        plannedCycle: found.cycle?.name ?? "待排期",
         summary: found.summary,
         docs: found.docs.map((d) => ({ name: d.name, url: d.url })),
         progress: summarize(countByStatus(found.tasks)),
