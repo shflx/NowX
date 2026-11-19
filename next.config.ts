@@ -5,7 +5,6 @@ const nextConfig: NextConfig = {
   output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
-  devIndicators: { position: "bottom-right" },
   experimental: {
     // 除登录页外所有页面都需要会话，开发时的自动「即时导航」校验无法在没有会话的模拟渲染中完成，
     // 只会产生无效提示。改为仅校验显式导出 instant 的路由段。
