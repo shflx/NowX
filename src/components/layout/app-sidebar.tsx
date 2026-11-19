@@ -6,6 +6,7 @@ import {
   FolderIcon,
   HouseIcon,
   LogOutIcon,
+  KeySquareIcon,
   MegaphoneIcon,
   MessagesSquareIcon,
   RefreshCwIcon,
@@ -155,6 +156,12 @@ export function AppSidebar() {
               <Link href="/change-password">
                 <KeyRoundIcon />
                 修改密码
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/account/access-tokens">
+                <KeySquareIcon />
+                个人访问令牌
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => logout()}>
