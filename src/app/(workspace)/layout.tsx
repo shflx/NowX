@@ -2,7 +2,7 @@ import { type ReactNode, Suspense } from "react";
 
 import { LiveUpdates } from "@/components/layout/live-updates";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AssistantPanel } from "@/features/assistant/components/assistant-panel";
+import { AssistantLauncher } from "@/features/assistant/components/assistant-launcher";
 import { AssistantProvider } from "@/features/assistant/components/assistant-provider";
 
 import { SidebarSection, TopbarSection } from "./workspace-shell";
@@ -14,7 +14,7 @@ import { SidebarSection, TopbarSection } from "./workspace-shell";
 export default function WorkspaceLayout({ children }: { children: ReactNode }) {
   return (
     <AssistantProvider>
-      <div className="grid h-screen grid-cols-[232px_minmax(0,1fr)] has-data-assistant-open:grid-cols-[232px_minmax(0,1fr)_400px]">
+      <div className="grid h-screen grid-cols-[232px_minmax(0,1fr)]">
         <Suspense fallback={<SidebarSkeleton />}>
           <SidebarSection />
         </Suspense>
@@ -26,11 +26,11 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
             {children}
           </main>
         </div>
-        {/* 这两个客户端组件读取 URL 参数，需要在 Suspense 内 */}
-        <Suspense>
-          <AssistantPanel />
-        </Suspense>
       </div>
+      {/* 助手对话框读取 URL 参数，需要在 Suspense 内 */}
+      <Suspense>
+        <AssistantLauncher />
+      </Suspense>
       <Suspense>
         <LiveUpdates />
       </Suspense>

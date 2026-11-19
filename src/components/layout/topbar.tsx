@@ -1,12 +1,10 @@
 "use client";
 
-import { ChevronRightIcon, SearchIcon, SparklesIcon } from "lucide-react";
+import { ChevronRightIcon, SearchIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import { useAssistant } from "@/features/assistant/components/assistant-provider";
 import { cn } from "@/lib/utils";
 
 import { type BellNotification, NotificationBell } from "./notification-bell";
@@ -41,7 +39,6 @@ export function Topbar({ notifications, unread }: { notifications: BellNotificat
   const crumbs = useBreadcrumb();
   const project = useCurrentProject();
   const router = useRouter();
-  const assistant = useAssistant();
   const searchRef = useRef<HTMLInputElement>(null);
 
   // ⌘K / Ctrl+K 聚焦搜索框
@@ -88,14 +85,6 @@ export function Topbar({ notifications, unread }: { notifications: BellNotificat
         </label>
       </form>
 
-      <Button
-        variant={assistant.open ? "default" : "outline"}
-        className="rounded-full"
-        onClick={() => assistant.setOpen(!assistant.open)}
-      >
-        <SparklesIcon />
-        项目助手
-      </Button>
       <NotificationBell items={notifications} unread={unread} />
     </header>
   );

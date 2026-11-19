@@ -2,7 +2,7 @@
 
 import { ArrowUpIcon, BotIcon, RotateCcwIcon, XIcon } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 import { Markdown } from "@/components/shared/markdown";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -13,26 +13,32 @@ import { useAssistant } from "./assistant-provider";
 
 const SUGGESTIONS = ["我的任务有哪些？", "有逾期的任务吗？", "本期进度怎么样？", "有哪些问题等我回答？", "最近有哪些 FAQ？"];
 
-/** 项目助手面板：在当前项目范围内只读地回答问题 */
-export function AssistantPanel() {
-  const { open, setOpen, conversation, loading, ask, clear } = useAssistant();
+/** 项目助手对话框：在当前项目范围内只读地回答问题；位置由悬浮入口计算后传入 */
+export function AssistantPanel({ style }: { style: CSSProperties }) {
+  const { setOpen, conversation, loading, ask, clear } = useAssistant();
   const projectKey = useParams<{ key?: string }>().key;
   const [input, setInput] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
   const turns = conversation.projectKey === projectKey ? conversation.turns : [];
 
-  // 新消息出现时滚动到底部（同步 DOM，属于 effect 的正当用途）
-  useEffect(() => bottom.current?.scrollIntoView({ behavior: "smooth" }), [turns.length, loading]);
+  // 新消息出现时滚动到底部（同步 DOM，属于 effect 的正当用途）。
+  // 使用语句体：新版浏览器的 scrollIntoView 会返回 Promise，不能作为 effect 的返回值
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ behavior: "smooth" });
+  }, [turns.length, loading]);
 
   function submit(question: string) {
     ask(question, projectKey);
     setInput("");
   }
 
-  if (!open) return null;
-
   return (
-    <aside data-assistant-open className="flex h-screen min-w-0 flex-col border-l bg-card" aria-label="项目助手">
+    <section
+      role="dialog"
+      aria-label="项目助手"
+      style={style}
+      className="fixed z-50 flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card shadow-2xl"
+    >
       <header className="flex items-center gap-2.5 border-b px-4 py-3">
         <UserAvatar user={null} assistant size="lg" />
         <div className="min-w-0 flex-1">
@@ -116,6 +122,6 @@ export function AssistantPanel() {
           </Button>
         </form>
       </footer>
-    </aside>
+    </section>
   );
 }
