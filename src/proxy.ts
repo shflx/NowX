@@ -9,6 +9,9 @@ const PUBLIC_PATHS = ["/login"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // 仅远程 MCP 入口由 Route Handler 检查 Bearer 令牌。
+  if (pathname === "/api/mcp") return NextResponse.next();
+
   const hasSession = request.cookies.has(SESSION_COOKIE);
 
   if (!hasSession && !PUBLIC_PATHS.includes(pathname)) {

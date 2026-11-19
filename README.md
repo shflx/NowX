@@ -22,12 +22,18 @@ pnpm dev                      # http://localhost:3000
 
 项目助手需要在 `.env` 中配置 `ANTHROPIC_API_KEY`，不配置时其余功能不受影响。
 
+## 远程 MCP
+
+在账号菜单打开「个人访问令牌」并创建令牌。将管理页上的 `/api/mcp` 地址添加到支持 Streamable HTTP 的客户端，配置请求头 `Authorization: Bearer <token>`。部署时将 `APP_URL` 设为站点的 HTTPS 访问地址。
+
+令牌有效期为 90 天，可在管理页吊销。每个账号每分钟可发出 120 个 MCP POST 请求。外部客户端可以列出可访问的未归档项目，并读取其任务与需求。
+
 ## 常用命令
 
 | 命令 | 说明 |
 |---|---|
 | `pnpm typecheck` / `pnpm lint` | 类型检查 / 代码检查 |
-| `pnpm test` | 单元测试（`src/**/*.test.ts`） |
+| `pnpm test` | Vitest（`src/**/*.test.ts`），设置 `NOWX_MCP_TEST_DATABASE_URL` 后同时运行令牌和查询工具的 PostgreSQL 用例。请使用已应用迁移的测试库 |
 | `pnpm test:e2e` | 端到端测试（依赖演示数据；未安装 Playwright 浏览器时加 `PLAYWRIGHT_CHANNEL=chrome`） |
 | `pnpm db:migrate` | 修改 `prisma/schema.prisma` 后生成并执行迁移 |
 | `pnpm db:studio` | 浏览数据库 |
@@ -66,4 +72,4 @@ docker compose --env-file .env.production --profile prod run --rm migrate pnpm d
 
 Compose 包含 PostgreSQL、迁移任务、应用和 Caddy（自动申请 HTTPS 证书）。上传的文件保存在 `uploads` 卷中，备份时连同数据库卷一起备份。
 
-当前的实时推送与登录限流在进程内实现，只支持单实例部署。
+实时推送、登录限流和 MCP 限流在进程内实现，只支持单实例部署。
