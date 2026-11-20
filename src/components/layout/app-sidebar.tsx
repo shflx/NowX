@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChevronUpIcon,
   CircleCheckBigIcon,
   FileTextIcon,
   FolderIcon,
@@ -17,11 +18,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ComponentType, ReactNode } from "react";
+import { useRef, type ComponentType, type ReactNode } from "react";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { logout } from "@/features/auth/actions";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -76,6 +76,9 @@ export function AppSidebar() {
   const project = useCurrentProject();
   const isAdmin = user.role === "ADMIN";
 
+  // 记录账号菜单是否由指针打开：指针打开时关闭菜单不把焦点还给触发器，避免残留焦点框；键盘操作仍保留焦点归还
+  const openedByPointerRef = useRef(false);
+
   return (
     <aside className="flex h-screen flex-col gap-1 overflow-y-auto border-r bg-sidebar px-2.5 py-3">
       <ProjectSwitcher />
@@ -129,22 +132,37 @@ export function AppSidebar() {
         )}
       </nav>
 
-      <div className="mt-auto flex items-center gap-2 border-t pt-3">
-        <UserAvatar user={user} size="lg" />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold">{user.name}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {user.title}
-            {isAdmin && " · 管理员"}
-          </div>
-        </div>
+      {/* 整个用户区作为账号菜单入口，承载修改密码、访问令牌和退出登录 */}
+      <div className="mt-auto border-t pt-3">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="账号菜单">
-              <LogOutIcon />
-            </Button>
+          <DropdownMenuTrigger
+            asChild
+            onPointerDown={() => (openedByPointerRef.current = true)}
+            onKeyDown={() => (openedByPointerRef.current = false)}
+          >
+            <button
+              type="button"
+              aria-label="账号菜单"
+              className="flex w-full items-center gap-2 rounded-md p-1 text-left transition-colors outline-none hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=open]:bg-sidebar-accent"
+            >
+              <UserAvatar user={user} size="lg" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">{user.name}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {user.title}
+                  {isAdmin && " · 管理员"}
+                </div>
+              </div>
+              <ChevronUpIcon className="size-4 shrink-0 text-muted-foreground" />
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top">
+          <DropdownMenuContent
+            align="start"
+            side="top"
+            onCloseAutoFocus={(event) => {
+              if (openedByPointerRef.current) event.preventDefault();
+            }}
+          >
             <DropdownMenuItem asChild>
               <Link href="/change-password">
                 <KeyRoundIcon />
@@ -157,6 +175,7 @@ export function AppSidebar() {
                 个人访问令牌
               </Link>
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => logout()}>
               <LogOutIcon />
               退出登录
