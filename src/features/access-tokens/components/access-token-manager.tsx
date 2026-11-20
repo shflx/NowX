@@ -15,10 +15,11 @@ import { useAction } from "@/hooks/use-action";
 import { formatDateTime } from "@/lib/dates";
 
 import { createMyAccessToken, type listMyAccessTokens, revokeMyAccessToken } from "../actions";
+import { McpConfig } from "./mcp-config";
 
-type Props = { tokens: Awaited<ReturnType<typeof listMyAccessTokens>>; timeZone: string };
+type Props = { tokens: Awaited<ReturnType<typeof listMyAccessTokens>>; mcpUrl: string; timeZone: string };
 
-export function AccessTokenManager({ tokens, timeZone }: Props) {
+export function AccessTokenManager({ tokens, mcpUrl, timeZone }: Props) {
   const [name, setName] = useState("");
   const [secret, setSecret] = useState<string | null>(null);
   const create = useAction(createMyAccessToken, {
@@ -109,12 +110,14 @@ export function AccessTokenManager({ tokens, timeZone }: Props) {
         )}
       </SectionCard>
       <Dialog open={Boolean(secret)} onOpenChange={(open) => !open && setSecret(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>令牌已创建</DialogTitle>
             <DialogDescription>请复制并妥善保管。关闭后无法再次查看明文。</DialogDescription>
           </DialogHeader>
           <code className="bg-muted rounded-md px-3 py-2 text-sm break-all select-all">{secret}</code>
+          {/* 明文仅此处可见，直接给出填好令牌的完整配置，免去手动拼接 */}
+          {secret && <McpConfig url={mcpUrl} token={secret} />}
           <DialogFooter className="sm:justify-between">
             <Button variant="outline" onClick={copyToken}>
               <CopyIcon />
