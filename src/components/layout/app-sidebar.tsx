@@ -78,13 +78,6 @@ export function AppSidebar() {
 
   return (
     <aside className="flex h-screen flex-col gap-1 overflow-y-auto border-r bg-sidebar px-2.5 py-3">
-      <Link href="/" className="flex items-center gap-2 px-2 pb-3 text-base font-bold">
-        <span className="grid size-6.5 place-items-center rounded-md bg-primary text-[13px] font-extrabold text-primary-foreground">
-          N
-        </span>
-        NowX
-      </Link>
-
       <ProjectSwitcher />
 
       <nav className="mt-2 flex flex-col gap-0.5" aria-label="主导航">
