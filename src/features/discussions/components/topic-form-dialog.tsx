@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAction } from "@/hooks/use-action";
+import { routes } from "@/lib/routes";
 
 import { createTopic, getTopicLinkOptions, suggestSimilarTopics } from "../actions";
 
@@ -50,7 +51,7 @@ function TopicForm({ projectId, projectKey, members, currentUserId, defaultLink,
     successMessage: "已发布",
     onSuccess: ({ id }) => {
       onDone();
-      router.push(`/projects/${projectKey}/discussions/${id}`);
+      router.push(routes.topic(projectKey, id));
     },
   });
 
@@ -108,7 +109,7 @@ function TopicForm({ projectId, projectKey, members, currentUserId, defaultLink,
             {similar.map((t) => (
               <Link
                 key={t.id}
-                href={`/projects/${projectKey}/discussions/${t.id}`}
+                href={routes.topic(projectKey, t.id)}
                 onClick={onDone}
                 className="flex items-center gap-1.5 py-0.5 text-accent-text hover:underline"
               >

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { routes } from "@/lib/routes";
 import { db } from "@/server/db";
 import { publishProjectChange } from "@/server/events";
 import { notify } from "@/server/notifications";
@@ -47,7 +48,7 @@ export async function replyAsAssistant(topicId: string) {
       userIds: [summoner.id],
       actorId: "assistant",
       text: `项目助手回复了帖子「${topic.title}」`,
-      href: `/projects/${topic.project.key}/discussions/${topicId}`,
+      href: routes.topic(topic.project.key, topicId),
     });
     publishProjectChange(topic.project.id);
   } catch (error) {

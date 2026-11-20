@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CreateProjectDialog } from "@/features/projects/components/create-project-dialog";
+import { routes } from "@/lib/routes";
 
 import { useCurrentProject, useWorkspace } from "./workspace-context";
 
@@ -29,7 +30,7 @@ export function ProjectSwitcher() {
   const isAdmin = user.role === "ADMIN";
 
   const renderItem = (p: (typeof projects)[number]) => (
-    <DropdownMenuItem key={p.id} onSelect={() => router.push(`/projects/${p.key}/tasks`)}>
+    <DropdownMenuItem key={p.id} onSelect={() => router.push(routes.tasks(p.key))}>
       <ProjectDot project={p} />
       <span className="flex-1 truncate">{p.name}</span>
       {p.id === current?.id && <CheckIcon />}

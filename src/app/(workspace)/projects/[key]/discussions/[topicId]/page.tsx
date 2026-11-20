@@ -15,6 +15,7 @@ import { TopicStatusBadge } from "@/features/discussions/components/topic-status
 import { getTopic, incrementTopicView, listFaq } from "@/features/discussions/queries";
 import { formatRelative } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { isAdmin } from "@/server/auth/dal";
 import { appConfig } from "@/server/config";
@@ -52,7 +53,7 @@ export default async function TopicPage({ params }: PageProps<"/projects/[key]/d
         actions={
           <>
             <Button variant="outline" asChild>
-              <Link href={`/projects/${project.key}/discussions`}>返回列表</Link>
+              <Link href={routes.discussions(project.key)}>返回列表</Link>
             </Button>
             {canManage && <TopicManageActions topicId={topic.id} isFaq={topic.isFaq} status={topic.status} />}
           </>
@@ -109,11 +110,11 @@ export default async function TopicPage({ params }: PageProps<"/projects/[key]/d
             <div>
               <div className="mb-1.5 text-xs text-muted-foreground">关联</div>
               {topic.task ? (
-                <Link href={`/projects/${project.key}/tasks?task=${topic.task.number}`} className="text-accent-text hover:underline">
+                <Link href={routes.task(project.key, topic.task.number)} className="text-accent-text hover:underline">
                   {taskCode(project.key, topic.task.number)} {topic.task.title}
                 </Link>
               ) : topic.requirement ? (
-                <Link href={`/projects/${project.key}/requirements/${topic.requirement.number}`} className="text-accent-text hover:underline">
+                <Link href={routes.requirement(project.key, topic.requirement.number)} className="text-accent-text hover:underline">
                   {requirementCode(topic.requirement.number)} {topic.requirement.title}
                 </Link>
               ) : (
@@ -135,7 +136,7 @@ export default async function TopicPage({ params }: PageProps<"/projects/[key]/d
               faqs.map((f) => (
                 <Link
                   key={f.id}
-                  href={`/projects/${project.key}/discussions/${f.id}`}
+                  href={routes.topic(project.key, f.id)}
                   className="flex items-start gap-2 border-t py-2 text-sm first:border-0 first:pt-0 hover:text-accent-text"
                 >
                   <StarIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />

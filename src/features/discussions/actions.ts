@@ -5,6 +5,7 @@ import { after } from "next/server";
 
 import { ActionError, parseInput } from "@/lib/action-result";
 import { requirementCode, taskCode } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { sharesKeyword } from "@/lib/text";
 import { replyAsAssistant } from "@/features/assistant/topic-reply";
 import { recordActivity } from "@/server/activity";
@@ -21,8 +22,6 @@ import { replySchema, topicSchema } from "./schemas";
 /** 帖子管理权限：作者、指定回答人、管理员 */
 const canManage = (user: CurrentUser, topic: { authorId: string; assigneeId: string | null }) =>
   topic.authorId === user.id || topic.assigneeId === user.id || isAdmin(user);
-
-const topicHref = (projectKey: string, topicId: string) => `/projects/${projectKey}/discussions/${topicId}`;
 
 /** 正文 @项目助手 时，在响应返回后由助手补充回复 */
 function maybeSummonAssistant(topicId: string, text: string) {
@@ -57,7 +56,7 @@ export async function createTopic(projectId: string, input: unknown) {
     const topic = await db.topic.create({
       data: { projectId, title: data.title, body: data.body, authorId: user.id, assigneeId: data.assigneeId, taskId, requirementId },
     });
-    const href = topicHref(project.key, topic.id);
+    const href = routes.topic(project.key, topic.id);
 
     await recordActivity({ projectId, actorId: user.id, verb: "在交流区提问", target: topic.title, href });
     await notify({ userIds: [data.assigneeId], actorId: user.id, text: `${user.name} 在交流区向你提问：${topic.title}`, href });
@@ -82,7 +81,7 @@ export async function replyToTopic(topicId: string, input: unknown) {
       db.topic.update({ where: { id: topicId }, data: { lastActivityAt: new Date(), ...(solve ? { status: "SOLVED" } : {}) } }),
     ]);
 
-    const href = topicHref(project.key, topicId);
+    const href = routes.topic(project.key, topicId);
     const mentioned = await findMentionedMembers(topic.projectId, data.body);
     await notify({
       userIds: [topic.authorId, topic.assigneeId].filter((id) => id && !mentioned.includes(id)),
@@ -115,7 +114,7 @@ export async function acceptReply(replyId: string) {
       userIds: [reply.authorId],
       actorId: user.id,
       text: `你在「${topic.title}」中的回答被采纳了`,
-      href: topicHref(project.key, topic.id),
+      href: routes.topic(project.key, topic.id),
     });
     publishProjectChange(topic.projectId);
     refresh();

@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 
 import { ActionError, parseInput } from "@/lib/action-result";
+import { routes } from "@/lib/routes";
 import { recordActivity } from "@/server/activity";
 import { isAdmin } from "@/server/auth/dal";
 import { runAction } from "@/server/action";
@@ -22,7 +23,7 @@ export async function publishAnnouncement(projectId: string, input: unknown) {
     const announcement = await db.announcement.create({
       data: { projectId, title: data.title, body: data.body, pinned: data.pinned, authorId: user.id },
     });
-    const href = `/projects/${project.key}/announcements`;
+    const href = routes.announcements(project.key);
     await recordActivity({ projectId, actorId: user.id, verb: "发布了公告", target: announcement.title, href });
 
     const members = await db.projectMember.findMany({ where: { projectId }, select: { userId: true } });

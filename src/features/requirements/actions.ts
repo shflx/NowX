@@ -5,6 +5,7 @@ import { refresh } from "next/cache";
 import { ActionError, parseInput } from "@/lib/action-result";
 import { DOC_TYPE_META, detectDocType } from "@/lib/constants";
 import { requirementCode } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { recordActivity } from "@/server/activity";
 import { isAdmin } from "@/server/auth/dal";
 import { runAction } from "@/server/action";
@@ -55,7 +56,7 @@ export async function createRequirement(projectId: string, input: unknown) {
           actorId: user.id,
           verb: "新建了需求",
           target: `${requirementCode(created.number)} ${created.title}`,
-          href: `/projects/${project.key}/requirements/${created.number}`,
+          href: routes.requirement(project.key, created.number),
         },
         tx,
       );
@@ -141,7 +142,7 @@ export async function moveRequirement(requirementId: string, input: unknown) {
           actorId: user.id,
           verb: target ? `把需求排入「${target.name}」` : "把需求移回待排期",
           target: `${requirementCode(requirement.number)} ${requirement.title}`,
-          href: `/projects/${project.key}/requirements/${requirement.number}`,
+          href: routes.requirement(project.key, requirement.number),
         },
         tx,
       );

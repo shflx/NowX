@@ -6,6 +6,7 @@ import { ActionError, parseInput } from "@/lib/action-result";
 import { TASK_STATUS_LABEL } from "@/lib/constants";
 import { fromDateString } from "@/lib/dates";
 import { taskCode } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { recordActivity } from "@/server/activity";
 import { type CurrentUser, isAdmin } from "@/server/auth/dal";
 import { runAction } from "@/server/action";
@@ -39,14 +40,12 @@ async function nextTaskNumber(tx: Parameters<Parameters<typeof db.$transaction>[
   return taskSeq;
 }
 
-const taskHref = (project: Project, number: number) => `/projects/${project.key}/tasks?task=${number}`;
-
 async function notifyAssigned(actor: CurrentUser, project: Project, task: { number: number; title: string; assigneeId: string | null }) {
   await notify({
     userIds: [task.assigneeId],
     actorId: actor.id,
     text: `${actor.name} 把任务 ${taskCode(project.key, task.number)}「${task.title}」分配给了你`,
-    href: taskHref(project, task.number),
+    href: routes.task(project.key, task.number),
   });
 }
 
@@ -81,7 +80,7 @@ export async function createTask(projectId: string, input: unknown) {
         },
       });
       await recordActivity(
-        { projectId, actorId: user.id, verb: "新建了任务", target: `${taskCode(project.key, number)} ${created.title}`, href: taskHref(project, number) },
+        { projectId, actorId: user.id, verb: "新建了任务", target: `${taskCode(project.key, number)} ${created.title}`, href: routes.task(project.key, number) },
         tx,
       );
       return created;
@@ -118,7 +117,7 @@ export async function updateTask(taskId: string, input: unknown) {
         actorId: user.id,
         verb: data.status === "DONE" ? (task.parentId ? "完成了子任务" : "完成了任务") : "提交了评审",
         target: `${taskCode(project.key, task.number)} ${updated.title}`,
-        href: taskHref(project, task.number),
+        href: routes.task(project.key, task.number),
       });
     }
     if (data.assigneeId !== undefined && data.assigneeId !== task.assigneeId) {
@@ -180,7 +179,7 @@ export async function addTaskComment(taskId: string, input: unknown) {
     await db.taskComment.create({ data: { taskId, authorId: user.id, body } });
 
     const code = taskCode(project.key, task.number);
-    const href = taskHref(project, task.number);
+    const href = routes.task(project.key, task.number);
     const mentioned = await findMentionedMembers(task.projectId, body);
     await notify({ userIds: mentioned, actorId: user.id, text: `${user.name} 在 ${code} 的评论中提到了你`, href });
     // 负责人收到评论通知（已被 @ 的不重复通知）

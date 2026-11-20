@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { getDashboard } from "@/features/dashboard/queries";
 import { DueDate } from "@/features/tasks/components/task-card";
 import { formatLongDate, formatMonthDay } from "@/lib/dates";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { requireUser } from "@/server/auth/dal";
 import { appConfig } from "@/server/config";
@@ -51,7 +52,7 @@ export default async function DashboardPage() {
 
       {pinned.length > 0 && (
         <Link
-          href={`/projects/${pinned[0].project.key}/announcements`}
+          href={routes.announcements(pinned[0].project.key)}
           className="group mb-4 flex items-center gap-2.5 rounded-lg border border-[#f3e3c2] bg-warn-soft px-3.5 py-2.5 text-warn"
         >
           <PinIcon className="size-4 shrink-0" />
@@ -76,7 +77,7 @@ export default async function DashboardPage() {
                 {g.tasks.map((t) => (
                   <Link
                     key={t.id}
-                    href={`/projects/${t.project.key}/tasks?task=${t.number}`}
+                    href={routes.task(t.project.key, t.number)}
                     className="group -mx-2 flex items-center gap-2.5 rounded-md px-2 py-2 text-sm transition-colors hover:bg-muted/50"
                   >
                     <TaskStatusIcon status={t.status} />
@@ -126,7 +127,7 @@ export default async function DashboardPage() {
             <SectionCard
               key={c.id}
               title={
-                <Link href={`/projects/${c.project.key}/cycles?cycle=${c.id}`} className="hover:text-accent-text">
+                <Link href={routes.cycle(c.project.key, c.id)} className="hover:text-accent-text">
                   {activeCycles.length > 1 ? `${c.project.name} · ${c.name}` : c.name}
                 </Link>
               }
@@ -148,7 +149,7 @@ export default async function DashboardPage() {
                 <StatusLegend counts={c.counts} />
                 <div className="flex items-center justify-between">
                   {c.behind > 0 ? <StatusBadge tone="warn">落后计划约 {c.behind} 个</StatusBadge> : <StatusBadge tone="ok">进度正常</StatusBadge>}
-                  <Link href={`/projects/${c.project.key}/cycles?cycle=${c.id}`} className="text-xs text-accent-text hover:underline">
+                  <Link href={routes.cycle(c.project.key, c.id)} className="text-xs text-accent-text hover:underline">
                     查看燃尽图 →
                   </Link>
                 </div>
@@ -161,7 +162,7 @@ export default async function DashboardPage() {
             {waiting.map((t) => (
               <Link
                 key={t.id}
-                href={`/projects/${t.project.key}/discussions/${t.id}`}
+                href={routes.topic(t.project.key, t.id)}
                 className="group -mx-2 flex items-center gap-2.5 rounded-md px-2 py-2 text-sm hover:bg-muted/50"
               >
                 <UserAvatar user={t.author} size="sm" />

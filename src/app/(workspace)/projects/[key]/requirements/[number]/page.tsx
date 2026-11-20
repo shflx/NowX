@@ -27,6 +27,7 @@ import { NewTaskButton } from "@/features/tasks/components/task-form-dialog";
 import { BOARD_STATUSES, isOpenTask } from "@/lib/constants";
 import { formatMonthDay, toDateString } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { isAdmin } from "@/server/auth/dal";
 import { requireProjectByKey } from "@/server/permissions";
 
@@ -64,7 +65,7 @@ export default async function RequirementPage({ params }: PageProps<"/projects/[
           <>
             计划交付：
             {cycle ? (
-              <Link href={`/projects/${project.key}/cycles?cycle=${cycle.id}`} className="text-accent-text hover:underline">
+              <Link href={routes.cycle(project.key, cycle.id)} className="text-accent-text hover:underline">
                 {cycle.name}（{formatMonthDay(toDateString(cycle.startDate))}–{formatMonthDay(toDateString(cycle.endDate))}）
               </Link>
             ) : (
@@ -76,7 +77,7 @@ export default async function RequirementPage({ params }: PageProps<"/projects/[
         actions={
           <>
             <Button variant="outline" asChild>
-              <Link href={`/projects/${project.key}/requirements`}>返回列表</Link>
+              <Link href={routes.requirements(project.key)}>返回列表</Link>
             </Button>
             <MoveRequirementButton
               requirement={{ id: requirement.id, code, cycleId: requirement.cycleId, cycleName: cycle?.name ?? null }}
@@ -120,7 +121,7 @@ export default async function RequirementPage({ params }: PageProps<"/projects/[
             {requirement.tasks.map((t) => (
               <Link
                 key={t.id}
-                href={`/projects/${project.key}/tasks?task=${t.number}&cycle=all`}
+                href={routes.task(project.key, t.number, { allCycles: true })}
                 className="flex items-center gap-2.5 border-t py-2.5 text-sm first:border-0 hover:text-accent-text"
               >
                 <TaskStatusIcon status={t.status} />
@@ -157,7 +158,7 @@ export default async function RequirementPage({ params }: PageProps<"/projects/[
             {requirement.topics.map((t) => (
               <Link
                 key={t.id}
-                href={`/projects/${project.key}/discussions/${t.id}`}
+                href={routes.topic(project.key, t.id)}
                 className="flex items-center gap-2.5 border-t py-2 text-sm first:border-0 hover:text-accent-text"
               >
                 <TopicStatusBadge status={t.status} />

@@ -1,5 +1,6 @@
 import { findOrCreateTag, validTagIds } from "@/features/materials/service";
 import { MAX_UPLOAD_BYTES } from "@/lib/constants";
+import { routes } from "@/lib/routes";
 import { recordActivity } from "@/server/activity";
 import { db } from "@/server/db";
 import { publishProjectChange } from "@/server/events";
@@ -62,7 +63,7 @@ export async function POST(request: Request, { params }: RouteContext<"/api/proj
     actorId: user.id,
     verb: "上传了材料",
     target: material.name,
-    href: `/projects/${project.key}/materials`,
+    href: routes.materials(project.key),
   });
   publishProjectChange(project.id);
 

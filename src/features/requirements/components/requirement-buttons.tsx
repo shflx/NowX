@@ -7,6 +7,7 @@ import { type ComponentProps, useState } from "react";
 import { ActionMenu } from "@/components/shared/action-menu";
 import { Button } from "@/components/ui/button";
 import { useAction } from "@/hooks/use-action";
+import { routes } from "@/lib/routes";
 
 import { deleteRequirement } from "../actions";
 import { RequirementFormDialog } from "./requirement-form-dialog";
@@ -32,7 +33,7 @@ export function EditRequirementButton(props: FormProps & { canDelete: boolean })
   const [open, setOpen] = useState(false);
   const remove = useAction(deleteRequirement, {
     successMessage: "需求已删除",
-    onSuccess: () => router.push(`/projects/${props.projectKey}/requirements`),
+    onSuccess: () => router.push(routes.requirements(props.projectKey)),
   });
 
   return (

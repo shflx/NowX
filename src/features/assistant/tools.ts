@@ -7,6 +7,7 @@ import { searchProject } from "@/features/search/queries";
 import { OPEN_TASK_STATUSES, REQUIREMENT_STATUS_LABEL, TASK_STATUS_LABEL, TOPIC_STATUS_LABEL } from "@/lib/constants";
 import { toDateString } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import type { CurrentUser } from "@/server/auth/dal";
 import { today } from "@/server/config";
 import { db } from "@/server/db";
@@ -19,7 +20,7 @@ type Scope = { user: CurrentUser; project: { id: string; key: string; name: stri
 // 返回紧凑的 JSON，附带站内链接，便于模型在回答中引用。
 
 export function buildAssistantTools({ user, project }: Scope) {
-  const taskLink = (n: number) => `/projects/${project.key}/tasks?task=${n}&cycle=all`;
+  const taskLink = (n: number) => routes.task(project.key, n, { allCycles: true });
   const now = () => today();
 
   const listTasks = defineTool({
@@ -116,7 +117,7 @@ export function buildAssistantTools({ user, project }: Scope) {
           status: REQUIREMENT_STATUS_LABEL[r.status],
           tasks: summarize(countByStatus(r.tasks)),
         })),
-        link: `/projects/${project.key}/cycles?cycle=${cycle.id}`,
+        link: routes.cycle(project.key, cycle.id),
       });
     },
   });
@@ -156,7 +157,7 @@ export function buildAssistantTools({ user, project }: Scope) {
           assignee: t.assignee?.name ?? "未指派",
           link: taskLink(t.number),
         })),
-        link: `/projects/${project.key}/requirements/${found.number}`,
+        link: routes.requirement(project.key, found.number),
       });
     },
   });
@@ -181,7 +182,7 @@ export function buildAssistantTools({ user, project }: Scope) {
           status: TOPIC_STATUS_LABEL[t.status],
           author: t.author.name,
           assignee: t.assignee?.name ?? null,
-          link: `/projects/${project.key}/discussions/${t.id}`,
+          link: routes.topic(project.key, t.id),
         })),
       );
     },
@@ -195,9 +196,9 @@ export function buildAssistantTools({ user, project }: Scope) {
       const r = await searchProject(project.id, query);
       return JSON.stringify({
         tasks: r.tasks.map((t) => ({ code: taskCode(project.key, t.number), title: t.title, link: taskLink(t.number) })),
-        requirements: r.requirements.map((q) => ({ code: requirementCode(q.number), title: q.title, link: `/projects/${project.key}/requirements/${q.number}` })),
-        topics: r.topics.map((t) => ({ title: t.title, status: TOPIC_STATUS_LABEL[t.status], faq: t.isFaq, link: `/projects/${project.key}/discussions/${t.id}` })),
-        materials: r.materials.map((m) => ({ name: m.name, link: `/projects/${project.key}/materials` })),
+        requirements: r.requirements.map((q) => ({ code: requirementCode(q.number), title: q.title, link: routes.requirement(project.key, q.number) })),
+        topics: r.topics.map((t) => ({ title: t.title, status: TOPIC_STATUS_LABEL[t.status], faq: t.isFaq, link: routes.topic(project.key, t.id) })),
+        materials: r.materials.map((m) => ({ name: m.name, link: routes.materials(project.key) })),
       });
     },
   });

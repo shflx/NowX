@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
 import { PROJECT_COLORS } from "@/lib/constants";
+import { routes } from "@/lib/routes";
 
 import { createProject } from "../actions";
 
@@ -33,7 +34,7 @@ export function CreateProjectDialog({ open, onOpenChange, currentUserId, directo
     successMessage: "项目已创建，先新建一个周期吧",
     onSuccess: ({ key }) => {
       onOpenChange(false);
-      router.push(`/projects/${key}/cycles`);
+      router.push(routes.cycles(key));
     },
   });
 

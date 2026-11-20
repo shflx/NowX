@@ -13,6 +13,7 @@ import { RequirementStatusBadge } from "@/features/requirements/components/requi
 import { AskAssistantButton } from "@/features/search/components/ask-assistant-button";
 import { searchProject } from "@/features/search/queries";
 import { requirementCode, taskCode } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { appConfig } from "@/server/config";
 import { requireProjectByKey } from "@/server/permissions";
 
@@ -38,7 +39,7 @@ export default async function SearchPage({ params, searchParams }: PageProps<"/p
         <div className="flex max-w-4xl flex-col gap-4">
           <Section title="任务" count={result.tasks.length}>
             {result.tasks.map((t) => (
-              <Link key={t.id} href={`/projects/${project.key}/tasks?task=${t.number}&cycle=all`} className={rowClass}>
+              <Link key={t.id} href={routes.task(project.key, t.number, { allCycles: true })} className={rowClass}>
                 <TaskStatusIcon status={t.status} />
                 <span className="text-xs text-muted-foreground tabular-nums">{taskCode(project.key, t.number)}</span>
                 <span className="truncate">{t.title}</span>
@@ -47,7 +48,7 @@ export default async function SearchPage({ params, searchParams }: PageProps<"/p
           </Section>
           <Section title="需求" count={result.requirements.length}>
             {result.requirements.map((r) => (
-              <Link key={r.id} href={`/projects/${project.key}/requirements/${r.number}`} className={rowClass}>
+              <Link key={r.id} href={routes.requirement(project.key, r.number)} className={rowClass}>
                 <span className="text-xs text-muted-foreground tabular-nums">{requirementCode(r.number)}</span>
                 <span className="flex-1 truncate">{r.title}</span>
                 <RequirementStatusBadge status={r.status} />
@@ -56,7 +57,7 @@ export default async function SearchPage({ params, searchParams }: PageProps<"/p
           </Section>
           <Section title="交流区" count={result.topics.length}>
             {result.topics.map((t) => (
-              <Link key={t.id} href={`/projects/${project.key}/discussions/${t.id}`} className={rowClass}>
+              <Link key={t.id} href={routes.topic(project.key, t.id)} className={rowClass}>
                 <TopicStatusBadge status={t.status} />
                 <span className="flex-1 truncate">{t.title}</span>
                 {t.isFaq && <StatusBadge tone="accent">FAQ</StatusBadge>}

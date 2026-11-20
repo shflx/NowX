@@ -5,6 +5,7 @@ import { refresh } from "next/cache";
 import { ActionError, parseInput } from "@/lib/action-result";
 import { OPEN_TASK_STATUSES } from "@/lib/constants";
 import { fromDateString } from "@/lib/dates";
+import { routes } from "@/lib/routes";
 import { recordActivity } from "@/server/activity";
 import { runAction } from "@/server/action";
 import { db } from "@/server/db";
@@ -83,7 +84,7 @@ export async function startCycle(cycleId: string) {
       actorId: user.id,
       verb: "开始了周期",
       target: cycle.name,
-      href: `/projects/${project.key}/cycles?cycle=${cycle.id}`,
+      href: routes.cycle(project.key, cycle.id),
     });
     publishProjectChange(cycle.projectId);
     refresh();
@@ -125,7 +126,7 @@ export async function endCycle(cycleId: string, input: unknown) {
         await tx.cycle.update({ where: { id: target.id }, data: { status: "ACTIVE", startedAt: new Date() } });
       }
       await recordActivity(
-        { projectId: project.id, actorId: user.id, verb: "结束了周期", target: cycle.name, href: `/projects/${project.key}/cycles?cycle=${cycle.id}` },
+        { projectId: project.id, actorId: user.id, verb: "结束了周期", target: cycle.name, href: routes.cycle(project.key, cycle.id) },
         tx,
       );
       return { tasks: ids.length, requirements: movedRequirements };

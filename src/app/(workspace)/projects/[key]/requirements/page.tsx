@@ -17,6 +17,7 @@ import { loadTaskFormOptions } from "@/features/tasks/form-options";
 import { CYCLE_STATUS_LABEL } from "@/lib/constants";
 import { formatMonthDay, toDateString } from "@/lib/dates";
 import { requirementCode } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { requireProjectByKey } from "@/server/permissions";
 
 export const metadata: Metadata = { title: "需求" };
@@ -94,7 +95,7 @@ export default async function RequirementsPage({ params }: PageProps<"/projects/
                     </TableCell>
                   </TableRow>
                   {group.items.map((r) => {
-                    const href = `/projects/${project.key}/requirements/${r.number}`;
+                    const href = routes.requirement(project.key, r.number);
                     return (
                       <TableRow key={r.id} className="relative">
                         <TableCell className="text-muted-foreground pl-4 text-xs tabular-nums">

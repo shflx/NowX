@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAction } from "@/hooks/use-action";
+import { routes } from "@/lib/routes";
 
 import { createTask } from "../actions";
 import { laterThanRequirement, requirementCycle } from "./cycle-hint";
@@ -46,7 +47,7 @@ export function TaskFormDialog({ projectId, projectKey, members, cycles, require
     successMessage: ({ code }) => `已创建 ${code}`,
     onSuccess: ({ number }) => {
       onClose();
-      if (openAfterCreate) router.push(`/projects/${projectKey}/tasks?task=${number}`);
+      if (openAfterCreate) router.push(routes.task(projectKey, number));
     },
   });
 

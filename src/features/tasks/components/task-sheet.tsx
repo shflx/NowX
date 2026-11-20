@@ -24,6 +24,7 @@ import { NewTopicButton } from "@/features/discussions/components/topic-form-dia
 import { TopicStatusBadge } from "@/features/discussions/components/topic-status-badge";
 import { useAction } from "@/hooks/use-action";
 import { isOpenTask } from "@/lib/constants";
+import { routes } from "@/lib/routes";
 
 import { addTaskComment, createSubtask, deleteTask, updateTask } from "../actions";
 import { DueDate } from "./task-card";
@@ -70,7 +71,7 @@ export function TaskSheet({ task, options, currentUser }: Props) {
   const remove = useAction(deleteTask, { successMessage: `已删除 ${task.code}`, onSuccess: close });
 
   async function copyLink() {
-    await navigator.clipboard.writeText(`${window.location.origin}/projects/${projectKey}/tasks?task=${task.number}`).catch(() => {});
+    await navigator.clipboard.writeText(`${window.location.origin}${routes.task(projectKey, task.number)}`).catch(() => {});
     toast.success("已复制任务链接");
   }
 
@@ -168,7 +169,7 @@ export function TaskSheet({ task, options, currentUser }: Props) {
               />
               {task.requirement && (
                 <>
-                  <Link href={`/projects/${projectKey}/requirements/${task.requirement.number}`} className="shrink-0 text-xs text-accent-text hover:underline">
+                  <Link href={routes.requirement(projectKey, task.requirement.number)} className="shrink-0 text-xs text-accent-text hover:underline">
                     查看需求
                   </Link>
                   {task.requirement.doc && <DocLink doc={task.requirement.doc} />}
@@ -207,7 +208,7 @@ export function TaskSheet({ task, options, currentUser }: Props) {
               task.topics.map((t) => (
                 <Link
                   key={t.id}
-                  href={`/projects/${projectKey}/discussions/${t.id}`}
+                  href={routes.topic(projectKey, t.id)}
                   className="flex items-center gap-2 border-t py-2 text-sm first:border-0 hover:text-accent-text"
                 >
                   <TopicStatusBadge status={t.status} />

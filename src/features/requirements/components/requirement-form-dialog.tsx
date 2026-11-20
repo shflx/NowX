@@ -21,6 +21,7 @@ import type { CycleLite } from "@/features/tasks/components/types";
 import { useAction } from "@/hooks/use-action";
 import { detectDocType, MAX_UPLOAD_BYTES, REQUIREMENT_STATUS_LABEL } from "@/lib/constants";
 import { formatFileSize } from "@/lib/format";
+import { routes } from "@/lib/routes";
 
 import { createRequirement, updateRequirement } from "../actions";
 import { RequirementStatusBadge } from "./requirement-status-badge";
@@ -102,7 +103,7 @@ export function RequirementFormDialog({ projectId, projectKey, members, requirem
     if (failed) toast.error(`${failed} 个附件上传失败，可以稍后在需求详情中重新添加`);
     toast.success("需求已创建，可以开始拆解任务了");
     onClose();
-    router.push(`/projects/${projectKey}/requirements/${result.data.number}`);
+    router.push(routes.requirement(projectKey, result.data.number));
   }
 
   function addFiles(list: FileList | null) {

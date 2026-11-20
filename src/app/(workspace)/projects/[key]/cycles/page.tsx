@@ -17,6 +17,7 @@ import { behindPlan } from "@/features/cycles/stats";
 import { CYCLE_STATUS_LABEL, OPEN_TASK_STATUSES } from "@/lib/constants";
 import { addDays, formatMonthDay } from "@/lib/dates";
 import { taskCode } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { today } from "@/server/config";
 import { db } from "@/server/db";
@@ -151,7 +152,7 @@ export default async function CyclesPage({ params, searchParams }: PageProps<"/p
                 {plannedReqs.map((r) => (
                   <li key={r.id}>
                     <Link
-                      href={`/projects/${project.key}/requirements/${r.number}`}
+                      href={routes.requirement(project.key, r.number)}
                       className="flex items-center gap-3 border-t py-2.5 text-sm first:border-0 hover:text-accent-text"
                     >
                       <span className="text-xs text-muted-foreground tabular-nums">{r.code}</span>
@@ -224,7 +225,7 @@ export default async function CyclesPage({ params, searchParams }: PageProps<"/p
               {detail.carried.map((t) => (
                 <Link
                   key={t.id}
-                  href={`/projects/${project.key}/tasks?task=${t.number}`}
+                  href={routes.task(project.key, t.number)}
                   className="flex items-center gap-2.5 border-t py-2 text-sm first:border-0 hover:text-accent-text"
                 >
                   <TaskStatusIcon status={t.status} />

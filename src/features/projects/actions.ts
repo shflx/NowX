@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 
 import { ActionError, parseInput } from "@/lib/action-result";
+import { routes } from "@/lib/routes";
 import { requireAdmin } from "@/server/auth/dal";
 import { runAction } from "@/server/action";
 import { db } from "@/server/db";
@@ -36,7 +37,7 @@ export async function createProject(input: unknown) {
       userIds: memberIds,
       actorId: admin.id,
       text: `${admin.name} 把你加入了项目「${project.name}」`,
-      href: `/projects/${project.key}/tasks`,
+      href: routes.tasks(project.key),
     });
     return { key: project.key };
   });
@@ -72,7 +73,7 @@ export async function addProjectMembers(projectId: string, userIds: string[]) {
       userIds,
       actorId: admin.id,
       text: `${admin.name} 把你加入了项目「${project.name}」`,
-      href: `/projects/${project.key}/tasks`,
+      href: routes.tasks(project.key),
     });
     publishProjectChange(projectId);
     refresh();
@@ -109,7 +110,7 @@ export async function deleteProject(projectId: string, confirmKey: string) {
 
     await db.$transaction([
       // 指向该项目的通知已无法打开，一并清理
-      db.notification.deleteMany({ where: { href: { startsWith: `/projects/${project.key}/` } } }),
+      db.notification.deleteMany({ where: { href: { startsWith: `${routes.project(project.key)}/` } } }),
       db.project.delete({ where: { id: projectId } }),
     ]);
 

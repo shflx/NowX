@@ -15,6 +15,7 @@ import type { DocType, MaterialKind } from "@/generated/prisma/enums";
 import type { RequirementLite } from "@/features/tasks/components/types";
 import { Input } from "@/components/ui/input";
 import { useAction } from "@/hooks/use-action";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 import { deleteMaterial, renameMaterial, updateMaterialTags } from "../actions";
@@ -192,7 +193,7 @@ function MaterialCard({ material: m, projectKey, onEditTags, onRename }: CardPro
         ))}
         {m.requirement && (
           <Link
-            href={`/projects/${projectKey}/requirements/${m.requirement.number}`}
+            href={routes.requirement(projectKey, m.requirement.number)}
             className="relative z-10 rounded border bg-muted px-1.5 text-xs leading-5 text-muted-foreground hover:border-primary hover:text-accent-text"
           >
             {m.requirement.code}

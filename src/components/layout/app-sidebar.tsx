@@ -23,6 +23,7 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { logout } from "@/features/auth/actions";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 import { ProjectSwitcher } from "./project-switcher";
@@ -74,7 +75,6 @@ export function AppSidebar() {
   const { user } = useWorkspace();
   const project = useCurrentProject();
   const isAdmin = user.role === "ADMIN";
-  const base = project ? `/projects/${project.key}` : "";
 
   return (
     <aside className="flex h-screen flex-col gap-1 overflow-y-auto border-r bg-sidebar px-2.5 py-3">
@@ -88,23 +88,23 @@ export function AppSidebar() {
         {project && (
           <>
             <SectionLabel>项目</SectionLabel>
-            <NavItem href={`${base}/tasks`} icon={CircleCheckBigIcon} count={project.myOpenTasks}>
+            <NavItem href={routes.tasks(project.key)} icon={CircleCheckBigIcon} count={project.myOpenTasks}>
               任务
             </NavItem>
-            <NavItem href={`${base}/cycles`} icon={RefreshCwIcon}>
+            <NavItem href={routes.cycles(project.key)} icon={RefreshCwIcon}>
               周期
             </NavItem>
-            <NavItem href={`${base}/requirements`} icon={FileTextIcon}>
+            <NavItem href={routes.requirements(project.key)} icon={FileTextIcon}>
               需求
             </NavItem>
             <SectionLabel>协作</SectionLabel>
-            <NavItem href={`${base}/discussions`} icon={MessagesSquareIcon} count={project.waitingForMe} highlight>
+            <NavItem href={routes.discussions(project.key)} icon={MessagesSquareIcon} count={project.waitingForMe} highlight>
               交流区
             </NavItem>
-            <NavItem href={`${base}/materials`} icon={FolderIcon}>
+            <NavItem href={routes.materials(project.key)} icon={FolderIcon}>
               材料库
             </NavItem>
-            <NavItem href={`${base}/announcements`} icon={MegaphoneIcon}>
+            <NavItem href={routes.announcements(project.key)} icon={MegaphoneIcon}>
               公告
             </NavItem>
           </>
@@ -115,7 +115,7 @@ export function AppSidebar() {
           <>
             <SectionLabel>管理</SectionLabel>
             {project && (
-              <NavItem href={`${base}/settings`} icon={SlidersHorizontalIcon}>
+              <NavItem href={routes.settings(project.key)} icon={SlidersHorizontalIcon}>
                 项目设置
               </NavItem>
             )}

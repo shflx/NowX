@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAction } from "@/hooks/use-action";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 import { setProjectArchived } from "../actions";
@@ -75,7 +76,7 @@ export function ProjectsTable({ projects, currentUserId, directory }: Props) {
                   <span className="flex items-center gap-2.5">
                     <ProjectDot project={p} className={cn(p.archived && "opacity-50 grayscale")} />
                     <span className="min-w-0">
-                      <Link href={`/projects/${p.key}/tasks`} className="font-semibold hover:text-accent-text">
+                      <Link href={routes.tasks(p.key)} className="font-semibold hover:text-accent-text">
                         {p.name}
                       </Link>
                       {p.description && <span className="block max-w-72 truncate text-xs text-muted-foreground">{p.description}</span>}
@@ -92,7 +93,7 @@ export function ProjectsTable({ projects, currentUserId, directory }: Props) {
                 <TableCell className="text-xs text-muted-foreground tabular-nums">{p.createdAt}</TableCell>
                 <TableCell className="pr-4 text-right whitespace-nowrap">
                   <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/projects/${p.key}/settings`}>
+                    <Link href={routes.settings(p.key)}>
                       <SettingsIcon />
                       设置
                     </Link>

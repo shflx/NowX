@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 
 import { ActionError, parseInput } from "@/lib/action-result";
 import { DOC_TYPE_META, detectDocType } from "@/lib/constants";
+import { routes } from "@/lib/routes";
 import { recordActivity } from "@/server/activity";
 import { isAdmin } from "@/server/auth/dal";
 import { runAction } from "@/server/action";
@@ -36,7 +37,7 @@ export async function createLinkMaterial(projectId: string, input: unknown) {
         tags: { create: (await validTagIds(projectId, data.tagIds)).map((tagId) => ({ tagId })) },
       },
     });
-    await recordActivity({ projectId, actorId: user.id, verb: "添加了材料", target: material.name, href: `/projects/${project.key}/materials` });
+    await recordActivity({ projectId, actorId: user.id, verb: "添加了材料", target: material.name, href: routes.materials(project.key) });
     publishProjectChange(projectId);
     refresh();
   });

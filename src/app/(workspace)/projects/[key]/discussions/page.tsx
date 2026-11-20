@@ -13,6 +13,7 @@ import { TOPIC_FILTER_LABEL, TOPIC_FILTERS, type TopicFilter } from "@/features/
 import { listProjectMembers } from "@/features/projects/queries";
 import { formatRelative } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
+import { routes } from "@/lib/routes";
 import { excerpt } from "@/lib/text";
 import { cn } from "@/lib/utils";
 import { appConfig } from "@/server/config";
@@ -92,7 +93,7 @@ export default async function DiscussionsPage({ params, searchParams }: PageProp
                 <UserAvatar user={t.author} size="lg" />
                 <div className="min-w-0 flex-1">
                   <h2 className="flex items-center gap-2 text-[15px] font-semibold">
-                    <Link href={`/projects/${project.key}/discussions/${t.id}`} className="after:absolute after:inset-0 hover:text-accent-text">
+                    <Link href={routes.topic(project.key, t.id)} className="after:absolute after:inset-0 hover:text-accent-text">
                       {t.title}
                     </Link>
                     {t.isFaq && <StatusBadge tone="accent">FAQ</StatusBadge>}

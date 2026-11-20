@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { Kbd } from "@/components/ui/kbd";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 import { type BellNotification, NotificationBell } from "./notification-bell";
@@ -56,7 +57,7 @@ export function Topbar({ notifications, unread }: { notifications: BellNotificat
   function handleSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const q = searchRef.current?.value.trim();
-    if (q && project) router.push(`/projects/${project.key}/search?q=${encodeURIComponent(q)}`);
+    if (q && project) router.push(routes.search(project.key, q));
   }
 
   return (
