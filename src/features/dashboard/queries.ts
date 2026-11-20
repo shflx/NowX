@@ -2,6 +2,7 @@ import "server-only";
 
 import { behindPlan, countByStatus, summarize, timeline } from "@/features/cycles/stats";
 import { isOverdue } from "@/features/tasks/serialize";
+import { OPEN_TASK_STATUSES } from "@/lib/constants";
 import { formatRelative, toDateString } from "@/lib/dates";
 import { taskCode } from "@/lib/format";
 import type { CurrentUser } from "@/server/auth/dal";
@@ -21,7 +22,7 @@ export async function getDashboard(user: CurrentUser) {
     db.task.findMany({
       where: {
         assigneeId: user.id,
-        status: { in: ["TODO", "IN_PROGRESS", "IN_REVIEW"] },
+        status: { in: OPEN_TASK_STATUSES },
         cycle: { status: "ACTIVE" },
         project: projectWhere,
       },

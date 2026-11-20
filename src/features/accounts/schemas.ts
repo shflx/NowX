@@ -1,11 +1,12 @@
 import { z } from "zod";
 
 import { passwordRule } from "@/features/auth/schemas";
+import { UserRole } from "@/generated/prisma/enums";
 
 export const accountFieldsSchema = z.object({
   name: z.string().trim().min(1, "请填写姓名").max(20, "姓名不能超过 20 个字"),
   title: z.string().trim().max(20, "职能不能超过 20 个字").default(""),
-  role: z.enum(["ADMIN", "MEMBER"]),
+  role: z.enum(UserRole),
   projectIds: z.array(z.string()).default([]),
 });
 

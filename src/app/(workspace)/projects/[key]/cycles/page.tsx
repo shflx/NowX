@@ -14,7 +14,7 @@ import { RequirementStatusBadge } from "@/features/requirements/components/requi
 import { CycleActions, NewCycleButton } from "@/features/cycles/components/cycle-actions";
 import { getCycleDetail, listCycles } from "@/features/cycles/queries";
 import { behindPlan } from "@/features/cycles/stats";
-import { CYCLE_STATUS_LABEL } from "@/lib/constants";
+import { CYCLE_STATUS_LABEL, OPEN_TASK_STATUSES } from "@/lib/constants";
 import { addDays, formatMonthDay } from "@/lib/dates";
 import { taskCode } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -64,7 +64,7 @@ export default async function CyclesPage({ params, searchParams }: PageProps<"/p
     getCycleDetail(selected),
     selected.status === "ACTIVE"
       ? db.task.findMany({
-          where: { cycleId: selected.id, parentId: null, status: { in: ["TODO", "IN_PROGRESS", "IN_REVIEW"] } },
+          where: { cycleId: selected.id, parentId: null, status: { in: OPEN_TASK_STATUSES } },
           orderBy: { number: "asc" },
           select: { id: true, number: true, title: true, status: true, assignee: { select: { name: true, color: true } } },
         })

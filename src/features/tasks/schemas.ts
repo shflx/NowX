@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { TaskPriority, TaskStatus } from "@/generated/prisma/enums";
+
 const optionalId = z.string().min(1).nullable();
 const optionalDate = z
   .string()
@@ -9,8 +11,8 @@ const optionalDate = z
 export const taskFieldsSchema = z.object({
   title: z.string().trim().min(1, "请填写任务标题").max(120, "标题不能超过 120 个字"),
   description: z.string().max(10000, "描述太长了").default(""),
-  status: z.enum(["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "CANCELED"]),
-  priority: z.enum(["URGENT", "HIGH", "MEDIUM", "LOW"]),
+  status: z.enum(TaskStatus),
+  priority: z.enum(TaskPriority),
   assigneeId: optionalId,
   dueDate: optionalDate,
   cycleId: optionalId,

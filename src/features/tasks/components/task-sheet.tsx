@@ -23,6 +23,7 @@ import type { DocType, TaskPriority, TaskStatus, TopicStatus } from "@/generated
 import { NewTopicButton } from "@/features/discussions/components/topic-form-dialog";
 import { TopicStatusBadge } from "@/features/discussions/components/topic-status-badge";
 import { useAction } from "@/hooks/use-action";
+import { isOpenTask } from "@/lib/constants";
 
 import { addTaskComment, createSubtask, deleteTask, updateTask } from "../actions";
 import { DueDate } from "./task-card";
@@ -62,7 +63,7 @@ export function TaskSheet({ task, options, currentUser }: Props) {
   const link = useTaskLink();
   const close = () => router.push(link(null), { scroll: false });
   const { projectKey, members, cycles, requirements } = options;
-  const lateFor = task.status === "DONE" || task.status === "CANCELED" ? null : laterThanRequirement(task.cycleId, task.requirementId, requirements, cycles);
+  const lateFor = !isOpenTask(task.status) ? null : laterThanRequirement(task.cycleId, task.requirementId, requirements, cycles);
 
   const update = useAction(updateTask.bind(null, task.id));
   const save = (patch: Record<string, unknown>) => update.run(patch);

@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 
 import { ActionError, parseInput } from "@/lib/action-result";
+import { OPEN_TASK_STATUSES } from "@/lib/constants";
 import { fromDateString } from "@/lib/dates";
 import { recordActivity } from "@/server/activity";
 import { runAction } from "@/server/action";
@@ -110,7 +111,7 @@ export async function endCycle(cycleId: string, input: unknown) {
 
       // 未完成的任务全部移出，避免遗留在已结束的周期里
       const unfinished = await tx.task.findMany({
-        where: { cycleId, parentId: null, status: { in: ["TODO", "IN_PROGRESS", "IN_REVIEW"] } },
+        where: { cycleId, parentId: null, status: { in: OPEN_TASK_STATUSES } },
         select: { id: true },
       });
       const ids = unfinished.map((t) => t.id);

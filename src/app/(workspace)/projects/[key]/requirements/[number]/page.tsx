@@ -24,7 +24,7 @@ import { RequirementStatusBadge } from "@/features/requirements/components/requi
 import { getRequirement } from "@/features/requirements/queries";
 import { loadTaskFormOptions } from "@/features/tasks/form-options";
 import { NewTaskButton } from "@/features/tasks/components/task-form-dialog";
-import { BOARD_STATUSES } from "@/lib/constants";
+import { BOARD_STATUSES, isOpenTask } from "@/lib/constants";
 import { formatMonthDay, toDateString } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
 import { isAdmin } from "@/server/auth/dal";
@@ -43,11 +43,10 @@ export default async function RequirementPage({ params }: PageProps<"/projects/[
 
   const code = requirementCode(requirement.number);
   const cycle = requirement.cycle;
-  const OPEN = ["TODO", "IN_PROGRESS", "IN_REVIEW"];
-  const unfinishedInCycle = requirement.tasks.filter((t) => t.cycleId === requirement.cycleId && OPEN.includes(t.status)).length;
+  const unfinishedInCycle = requirement.tasks.filter((t) => t.cycleId === requirement.cycleId && isOpenTask(t.status)).length;
   // 任务排在交付周期之后，意味着赶不上交付，需要提示
   const lateTask = (t: (typeof requirement.tasks)[number]) =>
-    Boolean(cycle && t.cycle && OPEN.includes(t.status) && t.cycle.startDate > cycle.startDate);
+    Boolean(cycle && t.cycle && isOpenTask(t.status) && t.cycle.startDate > cycle.startDate);
   const canDelete = (requirement.ownerId === user.id || isAdmin(user)) && requirement.tasks.length === 0;
 
   return (

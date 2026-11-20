@@ -1,9 +1,8 @@
 import "server-only";
 
 import { ActionError } from "@/lib/action-result";
+import { OPEN_TASK_STATUSES } from "@/lib/constants";
 import type { Tx } from "@/server/db";
-
-const OPEN_STATUSES = ["TODO", "IN_PROGRESS", "IN_REVIEW"] as const;
 
 /** 校验需求可以排入该周期：同一项目、尚未结束。null 表示待排期 */
 export async function assertPlannableCycle(tx: Tx, projectId: string, cycleId: string | null) {
@@ -24,7 +23,7 @@ export async function moveUnfinishedTasks(
   { requirementId, fromCycleId, toCycleId, carriedFrom }: { requirementId: string; fromCycleId: string | null; toCycleId: string | null; carriedFrom: string | null },
 ) {
   const roots = await tx.task.findMany({
-    where: { requirementId, cycleId: fromCycleId, parentId: null, status: { in: [...OPEN_STATUSES] } },
+    where: { requirementId, cycleId: fromCycleId, parentId: null, status: { in: OPEN_TASK_STATUSES } },
     select: { id: true },
   });
   const ids = roots.map((t) => t.id);

@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { behindPlan, countByStatus, summarize, timeline } from "@/features/cycles/stats";
 import { searchProject } from "@/features/search/queries";
-import { REQUIREMENT_STATUS_LABEL, TASK_STATUS_LABEL, TOPIC_STATUS_LABEL } from "@/lib/constants";
+import { OPEN_TASK_STATUSES, REQUIREMENT_STATUS_LABEL, TASK_STATUS_LABEL, TOPIC_STATUS_LABEL } from "@/lib/constants";
 import { toDateString } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
 import type { CurrentUser } from "@/server/auth/dal";
@@ -39,14 +39,13 @@ export function buildAssistantTools({ user, project }: Scope) {
         if (!member) return JSON.stringify({ error: `项目中没有名为「${assignee}」的成员` });
         assigneeId = member.id;
       }
-      const open = ["TODO", "IN_PROGRESS", "IN_REVIEW"] as const;
       const tasks = await db.task.findMany({
         where: {
           projectId: project.id,
           parentId: null,
           assigneeId,
           ...(cycle === "active" ? { cycle: { status: "ACTIVE" } } : {}),
-          ...(status === "done" ? { status: "DONE" } : status === "all" ? {} : { status: { in: [...open] } }),
+          ...(status === "done" ? { status: "DONE" } : status === "all" ? {} : { status: { in: OPEN_TASK_STATUSES } }),
           ...(status === "overdue" ? { dueDate: { lt: new Date(`${now()}T00:00:00Z`) } } : {}),
         },
         orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }],

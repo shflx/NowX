@@ -1,5 +1,6 @@
 import "server-only";
 
+import { OPEN_TASK_STATUSES } from "@/lib/constants";
 import { type CurrentUser, isAdmin } from "@/server/auth/dal";
 import { db } from "@/server/db";
 
@@ -37,7 +38,7 @@ export async function listNavProjects(user: CurrentUser): Promise<NavProject[]> 
   const [taskCounts, topicCounts] = await Promise.all([
     db.task.groupBy({
       by: ["projectId"],
-      where: { assigneeId: user.id, status: { in: ["TODO", "IN_PROGRESS", "IN_REVIEW"] }, cycle: { status: "ACTIVE" } },
+      where: { assigneeId: user.id, status: { in: OPEN_TASK_STATUSES }, cycle: { status: "ACTIVE" } },
       _count: { _all: true },
     }),
     db.topic.groupBy({

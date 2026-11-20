@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ProjectDangerZone, ProjectInfoForm } from "@/features/projects/components/project-info-form";
 import { ProjectMembers } from "@/features/projects/components/project-members";
 import { listProjectMembers } from "@/features/projects/queries";
+import { OPEN_TASK_STATUSES } from "@/lib/constants";
 import { isAdmin } from "@/server/auth/dal";
 import { appConfig } from "@/server/config";
 import { db } from "@/server/db";
@@ -21,7 +22,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<"/projec
     listProjectMembers(project.id),
     db.task.groupBy({
       by: ["assigneeId"],
-      where: { projectId: project.id, status: { in: ["TODO", "IN_PROGRESS", "IN_REVIEW"] }, cycle: { status: "ACTIVE" } },
+      where: { projectId: project.id, status: { in: OPEN_TASK_STATUSES }, cycle: { status: "ACTIVE" } },
       _count: { _all: true },
     }),
     db.project.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "asc" }, select: { id: true, key: true, name: true, color: true } }),
