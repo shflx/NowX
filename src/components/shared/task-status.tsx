@@ -5,15 +5,17 @@ import { cn } from "@/lib/utils";
 const STATUS_COLOR: Record<TaskStatus, string> = {
   TODO: "text-status-todo",
   IN_PROGRESS: "text-status-doing",
+  BLOCKED: "text-status-blocked",
   IN_REVIEW: "text-status-review",
   DONE: "text-status-done",
   CANCELED: "text-muted-foreground",
 };
 
-/** 环形填充比例表达状态推进程度 */
+/** 环形填充比例表达状态推进程度；阻塞与进行中同为半环，以红色区分 */
 const STATUS_FILL: Record<TaskStatus, string> = {
   TODO: "",
   IN_PROGRESS: "bg-[conic-gradient(currentColor_0_50%,transparent_50%_100%)]",
+  BLOCKED: "bg-[conic-gradient(currentColor_0_50%,transparent_50%_100%)]",
   IN_REVIEW: "bg-[conic-gradient(currentColor_0_75%,transparent_75%_100%)]",
   DONE: "bg-current",
   CANCELED: "",

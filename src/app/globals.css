@@ -12,6 +12,7 @@
   --font-heading: var(--font-system);
   --color-status-todo: var(--status-todo);
   --color-status-doing: var(--status-doing);
+  --color-status-blocked: var(--status-blocked);
   --color-status-review: var(--status-review);
   --color-status-done: var(--status-done);
   --color-accent-soft: var(--accent-soft);
@@ -97,6 +98,7 @@
   /* 业务语义色：任务状态（看板、进度条、图表共用）与提示色 */
   --status-todo: #a3a19a;
   --status-doing: #2a78d6;
+  --status-blocked: #d93a3a;
   --status-review: #eb6834;
   --status-done: #1baf7a;
   --accent-soft: #eef0ff;

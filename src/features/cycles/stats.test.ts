@@ -11,10 +11,12 @@ describe("countByStatus / summarize", () => {
       { status: "DONE" },
       { status: "DONE" },
       { status: "IN_REVIEW" },
+      { status: "BLOCKED" },
       { status: "CANCELED" },
     ]);
-    expect(counts).toEqual({ TODO: 1, IN_PROGRESS: 0, IN_REVIEW: 1, DONE: 2 });
-    expect(summarize(counts)).toEqual({ total: 4, done: 2, remaining: 2, percent: 50 });
+    expect(counts).toEqual({ TODO: 1, IN_PROGRESS: 0, BLOCKED: 1, IN_REVIEW: 1, DONE: 2 });
+    // 阻塞中的任务计入剩余
+    expect(summarize(counts)).toEqual({ total: 5, done: 2, remaining: 3, percent: 40 });
   });
 
   it("没有任务时完成率为 0", () => {

@@ -218,9 +218,11 @@ model RequirementDoc {
 
 // ---------------------------------------------------------------- 任务
 
+/// 阻塞（BLOCKED）只能从进行中进入，解除后回到进行中；阻塞原因记录在任务评论中
 enum TaskStatus {
   TODO
   IN_PROGRESS
+  BLOCKED
   IN_REVIEW
   DONE
   CANCELED
@@ -250,6 +252,8 @@ model Task {
   parentId           String?
   /// 结束周期时被顺延出来的任务，记录来源周期
   carriedFromCycleId String?
+  /// 最近一次进入阻塞的时间，用于展示已阻塞天数；解除阻塞时清空
+  blockedAt          DateTime?
   completedAt        DateTime?
   creatorId          String
   createdAt          DateTime     @default(now())

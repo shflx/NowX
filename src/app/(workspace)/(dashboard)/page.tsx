@@ -35,8 +35,11 @@ export default async function DashboardPage() {
   const { myTasks, waiting, activeCycles, pinned, activities } = data;
 
   const overdue = myTasks.filter((t) => t.overdue);
+  // 已逾期的阻塞任务归入「已逾期」，避免重复出现
+  const blocked = myTasks.filter((t) => !t.overdue && t.status === "BLOCKED");
   const groups = [
     { label: "已逾期", tasks: overdue, danger: true },
+    { label: "阻塞中", tasks: blocked, danger: true },
     { label: "进行中", tasks: myTasks.filter((t) => !t.overdue && (t.status === "IN_PROGRESS" || t.status === "IN_REVIEW")) },
     { label: "待开始", tasks: myTasks.filter((t) => !t.overdue && t.status === "TODO") },
   ].filter((g) => g.tasks.length);
@@ -44,6 +47,7 @@ export default async function DashboardPage() {
 
   const summary = [`你有 ${myTasks.length} 个未完成任务`];
   if (overdue.length) summary.push(`${overdue.length} 个已逾期`);
+  if (blocked.length) summary.push(`${blocked.length} 个阻塞中`);
   if (waiting.length) summary.push(`${waiting.length} 个问题等你回答`);
 
   return (

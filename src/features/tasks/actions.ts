@@ -15,7 +15,8 @@ import { publishProjectChange } from "@/server/events";
 import { findMentionedMembers, notify } from "@/server/notifications";
 import { assertMembers, requireProjectAccess } from "@/server/permissions";
 
-import { commentSchema, createTaskSchema, subtaskSchema, updateTaskSchema } from "./schemas";
+import { blockTaskSchema, commentSchema, createTaskSchema, subtaskSchema, updateTaskSchema } from "./schemas";
+import { BLOCK_COMMENT_PREFIX, canBlock, canChangeStatus } from "./status-flow";
 
 type Project = { id: string; key: string };
 
@@ -47,6 +48,23 @@ async function notifyAssigned(actor: CurrentUser, project: Project, task: { numb
     text: `${actor.name} 把任务 ${taskCode(project.key, task.number)}「${task.title}」分配给了你`,
     href: routes.task(project.key, task.number),
   });
+}
+
+/** 评论的通知：被 @ 的成员，以及任务负责人（已被 @ 的不重复通知） */
+async function notifyComment(
+  actor: CurrentUser,
+  project: Project,
+  task: { number: number; assigneeId: string | null },
+  body: string,
+  assigneeText: string,
+) {
+  const code = taskCode(project.key, task.number);
+  const href = routes.task(project.key, task.number);
+  const mentioned = await findMentionedMembers(project.id, body);
+  await notify({ userIds: mentioned, actorId: actor.id, text: `${actor.name} 在 ${code} 的评论中提到了你`, href });
+  if (task.assigneeId && !mentioned.includes(task.assigneeId)) {
+    await notify({ userIds: [task.assigneeId], actorId: actor.id, text: assigneeText, href });
+  }
 }
 
 async function loadTask(taskId: string) {
@@ -101,6 +119,11 @@ export async function updateTask(taskId: string, input: unknown) {
     await assertTaskRefs(task.projectId, data);
 
     const statusChanged = data.status !== undefined && data.status !== task.status;
+    if (statusChanged && !canChangeStatus(task.status, data.status!)) {
+      throw new ActionError(data.status === "BLOCKED" ? "标记阻塞需要填写原因" : "阻塞中的任务只能恢复为进行中");
+    }
+    const unblocked = statusChanged && task.status === "BLOCKED";
+
     const updated = await db.task.update({
       where: { id: taskId },
       data: {
@@ -108,6 +131,7 @@ export async function updateTask(taskId: string, input: unknown) {
         dueDate: data.dueDate === undefined ? undefined : data.dueDate ? fromDateString(data.dueDate) : null,
         // 完成时间随状态维护，用于燃尽图统计
         completedAt: statusChanged ? (data.status === "DONE" ? new Date() : null) : undefined,
+        blockedAt: unblocked ? null : undefined,
       },
     });
 
@@ -120,6 +144,15 @@ export async function updateTask(taskId: string, input: unknown) {
         href: routes.task(project.key, task.number),
       });
     }
+    if (unblocked) {
+      await recordActivity({
+        projectId: task.projectId,
+        actorId: user.id,
+        verb: "解除了阻塞",
+        target: `${taskCode(project.key, task.number)} ${updated.title}`,
+        href: routes.task(project.key, task.number),
+      });
+    }
     if (data.assigneeId !== undefined && data.assigneeId !== task.assigneeId) {
       await notifyAssigned(user, project, updated);
     }
@@ -127,6 +160,29 @@ export async function updateTask(taskId: string, input: unknown) {
     publishProjectChange(task.projectId);
     refresh();
     return { status: updated.status, label: TASK_STATUS_LABEL[updated.status] };
+  });
+}
+
+/** 标记阻塞：仅限进行中的任务；阻塞原因作为一条评论保存，并通知负责人与被 @ 的成员 */
+export async function blockTask(taskId: string, input: unknown) {
+  return runAction(async () => {
+    const { task, user, project } = await loadTask(taskId);
+    if (!canBlock(task.status)) throw new ActionError("只有进行中的任务可以标记阻塞");
+    const { reason } = parseInput(blockTaskSchema, input);
+    const code = taskCode(project.key, task.number);
+
+    await db.$transaction(async (tx) => {
+      await tx.task.update({ where: { id: taskId }, data: { status: "BLOCKED", blockedAt: new Date() } });
+      await tx.taskComment.create({ data: { taskId, authorId: user.id, body: `${BLOCK_COMMENT_PREFIX}${reason}` } });
+      await recordActivity(
+        { projectId: task.projectId, actorId: user.id, verb: "标记了阻塞", target: `${code} ${task.title}`, href: routes.task(project.key, task.number) },
+        tx,
+      );
+    });
+    await notifyComment(user, project, task, reason, `${user.name} 把你的任务 ${code} 标记为阻塞：${reason}`);
+
+    publishProjectChange(task.projectId);
+    refresh();
   });
 }
 
@@ -177,15 +233,7 @@ export async function addTaskComment(taskId: string, input: unknown) {
     const { body } = parseInput(commentSchema, input);
 
     await db.taskComment.create({ data: { taskId, authorId: user.id, body } });
-
-    const code = taskCode(project.key, task.number);
-    const href = routes.task(project.key, task.number);
-    const mentioned = await findMentionedMembers(task.projectId, body);
-    await notify({ userIds: mentioned, actorId: user.id, text: `${user.name} 在 ${code} 的评论中提到了你`, href });
-    // 负责人收到评论通知（已被 @ 的不重复通知）
-    if (task.assigneeId && !mentioned.includes(task.assigneeId)) {
-      await notify({ userIds: [task.assigneeId], actorId: user.id, text: `${user.name} 评论了你的任务 ${code}`, href });
-    }
+    await notifyComment(user, project, task, body, `${user.name} 评论了你的任务 ${taskCode(project.key, task.number)}`);
 
     publishProjectChange(task.projectId);
     refresh();

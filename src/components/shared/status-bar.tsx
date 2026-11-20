@@ -3,12 +3,13 @@ import { cn } from "@/lib/utils";
 
 export type StatusCounts = Record<(typeof BOARD_STATUSES)[number], number>;
 
-const SEGMENT_COLOR = {
+const SEGMENT_COLOR: Record<keyof StatusCounts, string> = {
   TODO: "bg-status-todo",
   IN_PROGRESS: "bg-status-doing",
+  BLOCKED: "bg-status-blocked",
   IN_REVIEW: "bg-status-review",
   DONE: "bg-status-done",
-} as const;
+};
 
 /** 按状态堆叠的进度条；scale 用于成员负载等需要按比例缩短的场景 */
 export function StatusBar({ counts, scale = 1, className }: { counts: StatusCounts; scale?: number; className?: string }) {

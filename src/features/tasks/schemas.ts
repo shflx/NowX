@@ -32,6 +32,10 @@ export const commentSchema = z.object({
   body: z.string().trim().min(1, "评论不能为空").max(5000, "评论不能超过 5000 个字"),
 });
 
+export const blockTaskSchema = z.object({
+  reason: z.string().trim().min(1, "请填写阻塞原因").max(1000, "阻塞原因不能超过 1000 个字"),
+});
+
 export type TaskListFilter = {
   /** 周期 ID；all = 全部；backlog = 未规划 */
   cycle: string;

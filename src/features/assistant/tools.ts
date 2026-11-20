@@ -4,12 +4,13 @@ import { z } from "zod";
 
 import { behindPlan, countByStatus, summarize, timeline } from "@/features/cycles/stats";
 import { searchProject } from "@/features/search/queries";
+import { BLOCK_COMMENT_PREFIX } from "@/features/tasks/status-flow";
 import { ASSISTANT_NAME, OPEN_TASK_STATUSES, REQUIREMENT_STATUS_LABEL, TASK_STATUS_LABEL, TOPIC_STATUS_LABEL } from "@/lib/constants";
-import { toDateString } from "@/lib/dates";
+import { toDateString, todayIn } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import type { CurrentUser } from "@/server/auth/dal";
-import { today } from "@/server/config";
+import { appConfig, today } from "@/server/config";
 import { db } from "@/server/db";
 
 import { defineTool } from "./tool-definition";
@@ -19,6 +20,15 @@ type Scope = { user: CurrentUser; project: { id: string; key: string; name: stri
 // 项目助手可用的工具：全部只读，且查询范围固定在当前项目、权限由调用方保证。
 // 返回紧凑的 JSON，附带站内链接，便于模型在回答中引用。
 
+/** list_tasks 的状态范围；overdue 在未完成的基础上再按截止日期过滤 */
+const STATUS_FILTER = {
+  open: { status: { in: OPEN_TASK_STATUSES } },
+  overdue: { status: { in: OPEN_TASK_STATUSES } },
+  blocked: { status: "BLOCKED" },
+  done: { status: "DONE" },
+  all: {},
+} as const;
+
 export function buildAssistantTools({ user, project }: Scope) {
   const taskLink = (n: number) => routes.task(project.key, n, { allCycles: true });
   const now = () => today();
@@ -26,10 +36,10 @@ export function buildAssistantTools({ user, project }: Scope) {
   const listTasks = defineTool({
     name: "list_tasks",
     description:
-      "查询当前项目的任务。可按负责人（me 表示提问者本人，或成员姓名）、状态范围（open 未完成 / overdue 已逾期 / done 已完成 / all 全部）、周期范围（active 进行中的周期 / all 全部）筛选。只返回顶层任务。",
+      "查询当前项目的任务。可按负责人（me 表示提问者本人，或成员姓名）、状态范围（open 未完成 / overdue 已逾期 / blocked 阻塞中 / done 已完成 / all 全部）、周期范围（active 进行中的周期 / all 全部）筛选。只返回顶层任务。阻塞中的任务会附带阻塞原因与开始阻塞的日期。",
     inputSchema: z.object({
       assignee: z.string().optional().describe("me、成员姓名，留空表示所有人"),
-      status: z.enum(["open", "overdue", "done", "all"]).default("open"),
+      status: z.enum(["open", "overdue", "blocked", "done", "all"]).default("open"),
       cycle: z.enum(["active", "all"]).default("active"),
     }),
     run: async ({ assignee, status, cycle }) => {
@@ -46,7 +56,7 @@ export function buildAssistantTools({ user, project }: Scope) {
           parentId: null,
           assigneeId,
           ...(cycle === "active" ? { cycle: { status: "ACTIVE" } } : {}),
-          ...(status === "done" ? { status: "DONE" } : status === "all" ? {} : { status: { in: OPEN_TASK_STATUSES } }),
+          ...STATUS_FILTER[status],
           ...(status === "overdue" ? { dueDate: { lt: new Date(`${now()}T00:00:00Z`) } } : {}),
         },
         orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }],
@@ -60,6 +70,9 @@ export function buildAssistantTools({ user, project }: Scope) {
           assignee: { select: { name: true } },
           cycle: { select: { name: true } },
           requirement: { select: { number: true } },
+          blockedAt: true,
+          // 最近一次标记阻塞时填写的原因
+          comments: { where: { body: { startsWith: BLOCK_COMMENT_PREFIX } }, orderBy: { createdAt: "desc" }, take: 1, select: { body: true } },
         },
       });
       return JSON.stringify({
@@ -74,6 +87,12 @@ export function buildAssistantTools({ user, project }: Scope) {
           due: t.dueDate ? toDateString(t.dueDate) : null,
           cycle: t.cycle?.name ?? "待规划",
           requirement: t.requirement ? requirementCode(t.requirement.number) : null,
+          ...(t.status === "BLOCKED" && {
+            blocked: {
+              since: t.blockedAt ? todayIn(appConfig.timeZone, t.blockedAt) : null,
+              reason: t.comments[0]?.body.slice(BLOCK_COMMENT_PREFIX.length) ?? null,
+            },
+          }),
           link: taskLink(t.number),
         })),
       });

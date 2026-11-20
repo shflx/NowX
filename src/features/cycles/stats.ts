@@ -3,12 +3,13 @@
 
 import type { StatusCounts } from "@/components/shared/status-bar";
 import type { TaskStatus } from "@/generated/prisma/enums";
+import { BOARD_STATUSES } from "@/lib/constants";
 import { addDays, diffDays, todayIn } from "@/lib/dates";
 
 type CountableTask = { status: TaskStatus };
 
 export function countByStatus(tasks: CountableTask[]): StatusCounts {
-  const counts: StatusCounts = { TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0 };
+  const counts = Object.fromEntries(BOARD_STATUSES.map((s) => [s, 0])) as StatusCounts;
   for (const t of tasks) {
     if (t.status !== "CANCELED") counts[t.status] += 1;
   }
@@ -16,7 +17,7 @@ export function countByStatus(tasks: CountableTask[]): StatusCounts {
 }
 
 export function summarize(counts: StatusCounts) {
-  const total = counts.TODO + counts.IN_PROGRESS + counts.IN_REVIEW + counts.DONE;
+  const total = BOARD_STATUSES.reduce((sum, s) => sum + counts[s], 0);
   return { total, done: counts.DONE, remaining: total - counts.DONE, percent: total ? Math.round((counts.DONE / total) * 100) : 0 };
 }
 
