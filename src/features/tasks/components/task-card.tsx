@@ -8,6 +8,7 @@ import { formatMonthDay } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
 import type { TaskCardData } from "../serialize";
+import { blockedLabel } from "../status-flow";
 
 /** 截止日期：逾期标红 */
 export function DueDate({ task, className }: { task: Pick<TaskCardData, "due" | "overdue">; className?: string }) {
@@ -42,6 +43,7 @@ export function TaskCard({ task, href, dragging }: { task: TaskCardData; href: s
             {task.requirement.code}
           </span>
         )}
+        {task.blockedDays !== null && <StatusBadge tone="danger">{blockedLabel(task.blockedDays)}</StatusBadge>}
         {task.carried && <StatusBadge tone="warn">顺延</StatusBadge>}
         {task.subtasksTotal > 0 && (
           <span className="inline-flex items-center gap-0.5" title="子任务">

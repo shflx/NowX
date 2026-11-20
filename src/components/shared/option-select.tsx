@@ -17,6 +17,8 @@ export type Option = {
   label: string;
   /** 富文本展示（头像、状态图标等），缺省时显示 label */
   render?: ReactNode;
+  /** 不可选择（仍然展示，便于说明有哪些状态） */
+  disabled?: boolean;
 };
 
 type BaseProps = {
@@ -43,7 +45,7 @@ export function OptionSelect({ options, placeholder = "请选择", className, si
       </SelectTrigger>
       <SelectContent position="popper">
         {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
+          <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
             {o.render ?? o.label}
           </SelectItem>
         ))}

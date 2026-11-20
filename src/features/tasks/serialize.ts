@@ -5,6 +5,7 @@ import { toDateString } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
 
 import type { TaskListItem } from "./queries";
+import { blockedDays } from "./status-flow";
 
 export type TaskCardData = {
   id: string;
@@ -16,6 +17,8 @@ export type TaskCardData = {
   due: string | null;
   overdue: boolean;
   carried: boolean;
+  /** 阻塞中的任务已阻塞的天数，其余为 null */
+  blockedDays: number | null;
   parentId: string | null;
   assignee: { id: string; name: string; color: string } | null;
   requirement: { id: string; code: string; title: string } | null;
@@ -26,7 +29,7 @@ export type TaskCardData = {
 
 export const isOverdue = (due: string | null, status: TaskStatus, today: string) => Boolean(due && due < today && isOpenTask(status));
 
-export function toTaskCard(task: TaskListItem, projectKey: string, today: string): TaskCardData {
+export function toTaskCard(task: TaskListItem, projectKey: string, today: string, timeZone: string): TaskCardData {
   const due = task.dueDate ? toDateString(task.dueDate) : null;
   return {
     id: task.id,
@@ -38,6 +41,7 @@ export function toTaskCard(task: TaskListItem, projectKey: string, today: string
     due,
     overdue: isOverdue(due, task.status, today),
     carried: Boolean(task.carriedFromCycleId),
+    blockedDays: task.status === "BLOCKED" && task.blockedAt ? blockedDays(task.blockedAt, today, timeZone) : null,
     parentId: task.parentId,
     assignee: task.assignee,
     requirement: task.requirement

@@ -1,6 +1,6 @@
 "use client";
 
-import { MessagesSquareIcon, LinkIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { BanIcon, MessagesSquareIcon, LinkIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -27,6 +27,7 @@ import { isOpenTask } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 
 import { addTaskComment, createSubtask, deleteTask, updateTask } from "../actions";
+import { BlockTaskDialog } from "./block-task-dialog";
 import { DueDate } from "./task-card";
 import { laterThanRequirement } from "./cycle-hint";
 import { cycleOptions, requirementOptions } from "./task-option-builders";
@@ -47,6 +48,8 @@ export type TaskSheetData = {
   cycleId: string | null;
   requirementId: string | null;
   carriedFrom: string | null;
+  /** 阻塞中时的提示与最近一次填写的阻塞原因 */
+  blocked: { label: string; reason: string | null } | null;
   creatorName: string;
   createdAt: string;
   canDelete: boolean;
@@ -66,6 +69,7 @@ export function TaskSheet({ task, options, currentUser }: Props) {
   const { projectKey, members, cycles, requirements } = options;
   const lateFor = !isOpenTask(task.status) ? null : laterThanRequirement(task.cycleId, task.requirementId, requirements, cycles);
 
+  const [blocking, setBlocking] = useState(false);
   const update = useAction(updateTask.bind(null, task.id));
   const save = (patch: Record<string, unknown>) => update.run(patch);
   const remove = useAction(deleteTask, { successMessage: `已删除 ${task.code}`, onSuccess: close });
@@ -116,10 +120,30 @@ export function TaskSheet({ task, options, currentUser }: Props) {
         <div className="flex-1 overflow-y-auto px-6 pt-5 pb-8">
           <EditableTitle value={task.title} onSave={(title) => save({ title })} />
 
+          {task.blocked && (
+            <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-destructive/25 bg-danger-soft px-3.5 py-2.5 text-sm">
+              <BanIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-destructive">{task.blocked.label}</div>
+                {task.blocked.reason && <p className="mt-0.5 break-words text-foreground/80">{task.blocked.reason}</p>}
+              </div>
+              <Button size="sm" variant="outline" disabled={update.pending} onClick={() => save({ status: "IN_PROGRESS" })}>
+                解除阻塞
+              </Button>
+            </div>
+          )}
+
           <dl className="mt-4 grid grid-cols-[64px_minmax(0,1fr)_64px_minmax(0,1fr)] items-center gap-x-3 gap-y-2 rounded-lg border bg-muted/40 px-4 py-3 text-sm">
             <dt className="text-muted-foreground">状态</dt>
             <dd>
-              <OptionSelect size="sm" aria-label="状态" options={statusOptions()} value={task.status} onValueChange={(status) => save({ status })} />
+              <OptionSelect
+                size="sm"
+                aria-label="状态"
+                options={statusOptions(task.status)}
+                value={task.status}
+                // 进入阻塞需要先填写原因
+                onValueChange={(status) => (status === "BLOCKED" ? setBlocking(true) : save({ status }))}
+              />
             </dd>
             <dt className="text-muted-foreground">负责人</dt>
             <dd>
@@ -223,6 +247,7 @@ export function TaskSheet({ task, options, currentUser }: Props) {
 
           <Comments task={task} currentUser={currentUser} />
         </div>
+        {blocking && <BlockTaskDialog task={task} onClose={() => setBlocking(false)} />}
       </SheetContent>
     </Sheet>
   );

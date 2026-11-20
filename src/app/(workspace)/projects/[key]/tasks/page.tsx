@@ -10,7 +10,7 @@ import { TaskFilters, TaskViewToggle } from "@/features/tasks/components/task-fi
 import { NewTaskButton } from "@/features/tasks/components/task-form-dialog";
 import { TaskList } from "@/features/tasks/components/task-list";
 import { TaskSheet } from "@/features/tasks/components/task-sheet";
-import { today } from "@/server/config";
+import { appConfig, today } from "@/server/config";
 import { requireProjectByKey } from "@/server/permissions";
 
 export const metadata: Metadata = { title: "任务" };
@@ -39,7 +39,7 @@ export default async function TasksPage({ params, searchParams }: PageProps<"/pr
     listTasks(project.id, filter, user.id),
     Number.isInteger(taskNumber) && taskNumber > 0 ? getTaskDetail(project.id, taskNumber) : null,
   ]);
-  const cards = tasks.map((t) => toTaskCard(t, project.key, now));
+  const cards = tasks.map((t) => toTaskCard(t, project.key, now, appConfig.timeZone));
   const me = { id: user.id, name: user.name, color: user.color };
 
   return (

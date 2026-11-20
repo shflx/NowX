@@ -2,6 +2,7 @@
 import { PriorityIndicator, TaskStatusIcon } from "@/components/shared/task-status";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import type { TaskPriority, TaskStatus } from "@/generated/prisma/enums";
+import { canBlock, canChangeStatus } from "@/features/tasks/status-flow";
 import { PRIORITY_ORDER, TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from "@/lib/constants";
 
 import { NONE, type Option } from "./option-select";
@@ -22,11 +23,13 @@ export function memberOptions(members: Person[], none?: string): Option[] {
   return none ? [{ value: NONE, label: none, render: <span className="text-muted-foreground">{none}</span> }, ...options] : options;
 }
 
-export function statusOptions(): Option[] {
+/** 任务状态选项；按状态流转规则禁用当前状态不能切换到的目标 */
+export function statusOptions(current: TaskStatus): Option[] {
   return (Object.keys(TASK_STATUS_LABEL) as TaskStatus[]).map((s) => ({
     value: s,
     label: TASK_STATUS_LABEL[s],
     render: <TaskStatusIcon status={s} showLabel />,
+    disabled: !(canChangeStatus(current, s) || (s === "BLOCKED" && canBlock(current))),
   }));
 }
 

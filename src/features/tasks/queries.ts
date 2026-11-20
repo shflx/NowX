@@ -14,6 +14,7 @@ const listSelect = {
   dueDate: true,
   parentId: true,
   carriedFromCycleId: true,
+  blockedAt: true,
   assignee: { select: { id: true, name: true, color: true } },
   requirement: { select: { id: true, number: true, title: true } },
   subtasks: { select: { status: true } },

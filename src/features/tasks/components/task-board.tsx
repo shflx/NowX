@@ -22,18 +22,24 @@ import { cn } from "@/lib/utils";
 
 import { updateTask } from "../actions";
 import { isOverdue, type TaskCardData } from "../serialize";
+import { canBlock, canChangeStatus } from "../status-flow";
+import { BlockTaskDialog } from "./block-task-dialog";
 import { TaskCard } from "./task-card";
 import { useTaskLink } from "./use-task-link";
 
 type Props = { tasks: TaskCardData[]; today: string };
 
-/** 看板：拖动卡片到其他列即修改状态（乐观更新，失败时自动回滚） */
+/**
+ * 看板：拖动卡片到其他列即修改状态（乐观更新，失败时自动回滚）。
+ * 拖入「阻塞中」需要先填写原因；阻塞中的任务只能拖回「进行中」
+ */
 export function TaskBoard({ tasks, today }: Props) {
   const link = useTaskLink();
   // dnd-kit 默认用自增 id 生成无障碍属性，服务端与客户端不一致会导致水合警告，这里传入稳定 id
   const dndId = useId();
   const [, startTransition] = useTransition();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [blocking, setBlocking] = useState<TaskCardData | null>(null);
   const [optimistic, moveTask] = useOptimistic(tasks, (state, { id, status }: { id: string; status: TaskStatus }) =>
     state.map((t) => (t.id === id ? { ...t, status, overdue: isOverdue(t.due, status, today) } : t)),
   );
@@ -59,6 +65,16 @@ export function TaskBoard({ tasks, today }: Props) {
     const status = over?.id as TaskStatus | undefined;
     if (!task || !status || task.status === status) return;
 
+    if (status === "BLOCKED") {
+      if (canBlock(task.status)) setBlocking(task);
+      else toast.error("只有进行中的任务可以标记阻塞");
+      return;
+    }
+    if (!canChangeStatus(task.status, status)) {
+      toast.error("阻塞中的任务只能拖回「进行中」");
+      return;
+    }
+
     startTransition(async () => {
       moveTask({ id: task.id, status });
       const result = await updateTask(task.id, { status });
@@ -69,12 +85,13 @@ export function TaskBoard({ tasks, today }: Props) {
 
   return (
     <DndContext id={dndId} sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveId(null)}>
-      <div className="grid grid-cols-[repeat(4,minmax(240px,1fr))] items-start gap-3 overflow-x-auto pb-2">
+      <div className="grid items-start gap-3 overflow-x-auto pb-2" style={{ gridTemplateColumns: `repeat(${BOARD_STATUSES.length}, minmax(220px, 1fr))` }}>
         {BOARD_STATUSES.map((status) => (
           <Column key={status} status={status} tasks={visible.filter((t) => t.status === status)} link={link} activeId={activeId} />
         ))}
       </div>
       <DragOverlay>{active && <TaskCard task={active} href={link(active.number)} dragging />}</DragOverlay>
+      {blocking && <BlockTaskDialog task={blocking} onClose={() => setBlocking(null)} />}
     </DndContext>
   );
 }
@@ -106,7 +123,9 @@ function Column({
         {tasks.map((t) => (
           <DraggableCard key={t.id} task={t} href={link(t.number)} hidden={t.id === activeId} />
         ))}
-        {tasks.length === 0 && <div className="py-5 text-center text-xs text-muted-foreground">拖到这里</div>}
+        {tasks.length === 0 && (
+          <div className="py-5 text-center text-xs text-muted-foreground">{status === "BLOCKED" ? "从「进行中」拖入并填写原因" : "拖到这里"}</div>
+        )}
       </div>
     </section>
   );

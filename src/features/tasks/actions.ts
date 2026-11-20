@@ -10,13 +10,14 @@ import { routes } from "@/lib/routes";
 import { recordActivity } from "@/server/activity";
 import { type CurrentUser, isAdmin } from "@/server/auth/dal";
 import { runAction } from "@/server/action";
+import { appConfig, today } from "@/server/config";
 import { db } from "@/server/db";
 import { publishProjectChange } from "@/server/events";
 import { findMentionedMembers, notify } from "@/server/notifications";
 import { assertMembers, requireProjectAccess } from "@/server/permissions";
 
 import { blockTaskSchema, commentSchema, createTaskSchema, subtaskSchema, updateTaskSchema } from "./schemas";
-import { BLOCK_COMMENT_PREFIX, canBlock, canChangeStatus } from "./status-flow";
+import { BLOCK_COMMENT_PREFIX, blockedDays, canBlock, canChangeStatus, UNBLOCK_COMMENT_PREFIX, unblockSummary } from "./status-flow";
 
 type Project = { id: string; key: string };
 
@@ -78,6 +79,7 @@ export async function createTask(projectId: string, input: unknown) {
   return runAction(async () => {
     const { user, project } = await requireProjectAccess(projectId);
     const data = parseInput(createTaskSchema, input);
+    if (data.status === "BLOCKED") throw new ActionError("新建的任务不能直接标记阻塞");
     await assertTaskRefs(projectId, data);
 
     const task = await db.$transaction(async (tx) => {
@@ -144,15 +146,8 @@ export async function updateTask(taskId: string, input: unknown) {
         href: routes.task(project.key, task.number),
       });
     }
-    if (unblocked) {
-      await recordActivity({
-        projectId: task.projectId,
-        actorId: user.id,
-        verb: "解除了阻塞",
-        target: `${taskCode(project.key, task.number)} ${updated.title}`,
-        href: routes.task(project.key, task.number),
-      });
-    }
+    // 阻塞时长按更新前的 blockedAt 计算
+    if (unblocked) await recordUnblock(user, project, { ...task, title: updated.title });
     if (data.assigneeId !== undefined && data.assigneeId !== task.assigneeId) {
       await notifyAssigned(user, project, updated);
     }
@@ -161,6 +156,19 @@ export async function updateTask(taskId: string, input: unknown) {
     refresh();
     return { status: updated.status, label: TASK_STATUS_LABEL[updated.status] };
   });
+}
+
+/** 解除阻塞：自动写一条评论说明阻塞时长，记录动态，并通知负责人（看板拖回、详情切换状态都会走到这里） */
+async function recordUnblock(actor: CurrentUser, project: Project, task: { id: string; number: number; title: string; assigneeId: string | null; blockedAt: Date | null }) {
+  const code = taskCode(project.key, task.number);
+  const href = routes.task(project.key, task.number);
+  const summary = task.blockedAt ? unblockSummary(blockedDays(task.blockedAt, today(), appConfig.timeZone)) : "已恢复为进行中";
+
+  await db.$transaction(async (tx) => {
+    await tx.taskComment.create({ data: { taskId: task.id, authorId: actor.id, body: `${UNBLOCK_COMMENT_PREFIX}${summary}` } });
+    await recordActivity({ projectId: project.id, actorId: actor.id, verb: "解除了阻塞", target: `${code} ${task.title}`, href }, tx);
+  });
+  await notify({ userIds: [task.assigneeId], actorId: actor.id, text: `${actor.name} 解除了任务 ${code} 的阻塞（${summary}）`, href });
 }
 
 /** 标记阻塞：仅限进行中的任务；阻塞原因作为一条评论保存，并通知负责人与被 @ 的成员 */
