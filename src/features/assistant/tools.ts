@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { behindPlan, countByStatus, summarize, timeline } from "@/features/cycles/stats";
 import { searchProject } from "@/features/search/queries";
-import { OPEN_TASK_STATUSES, REQUIREMENT_STATUS_LABEL, TASK_STATUS_LABEL, TOPIC_STATUS_LABEL } from "@/lib/constants";
+import { ASSISTANT_NAME, OPEN_TASK_STATUSES, REQUIREMENT_STATUS_LABEL, TASK_STATUS_LABEL, TOPIC_STATUS_LABEL } from "@/lib/constants";
 import { toDateString } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
 import { routes } from "@/lib/routes";
@@ -219,7 +219,7 @@ export function buildAssistantTools({ user, project }: Scope) {
         body: topic.body,
         author: topic.author.name,
         status: TOPIC_STATUS_LABEL[topic.status],
-        replies: topic.replies.map((r) => ({ author: r.isAssistant ? "项目助手" : r.author?.name, body: r.body, accepted: r.isAccepted })),
+        replies: topic.replies.map((r) => ({ author: r.isAssistant ? ASSISTANT_NAME : r.author?.name, body: r.body, accepted: r.isAccepted })),
       });
     },
   });

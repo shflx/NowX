@@ -1,5 +1,6 @@
 import "server-only";
 
+import { ASSISTANT_MENTION, ASSISTANT_NAME } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { db } from "@/server/db";
 import { publishProjectChange } from "@/server/events";
@@ -24,9 +25,9 @@ export async function replyAsAssistant(topicId: string) {
     if (!topic) return;
 
     const summoner =
-      [...topic.replies].reverse().find((r) => r.author && r.body.includes("@项目助手"))?.author ?? topic.author;
+      [...topic.replies].reverse().find((r) => r.author && r.body.includes(ASSISTANT_MENTION))?.author ?? topic.author;
     const thread = topic.replies
-      .map((r) => `${r.isAssistant ? "项目助手" : (r.author?.name ?? "成员")}：${r.body}`)
+      .map((r) => `${r.isAssistant ? ASSISTANT_NAME : (r.author?.name ?? "成员")}：${r.body}`)
       .join("\n\n");
 
     const answer = await askAssistant({

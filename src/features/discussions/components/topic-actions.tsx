@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAction } from "@/hooks/use-action";
+import { ASSISTANT_MENTION } from "@/lib/constants";
 
 import { acceptReply, replyToTopic, setTopicFaq, setTopicStatus } from "../actions";
 
@@ -69,7 +70,7 @@ export function ReplyComposer({ topicId, currentUser, canSolve, assistantEnabled
           value={body}
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && submit()}
-          placeholder={assistantEnabled ? "写下你的回答或补充…  输入 @项目助手 让助手帮忙查找" : "写下你的回答或补充…（⌘ + Enter 发送）"}
+          placeholder={assistantEnabled ? `写下你的回答或补充…  输入 ${ASSISTANT_MENTION} 让助手帮忙查找` : "写下你的回答或补充…（⌘ + Enter 发送）"}
           className="min-h-24 resize-y border-0 shadow-none focus-visible:ring-0"
           aria-label="回复内容"
         />

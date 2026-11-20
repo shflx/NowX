@@ -3,10 +3,12 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 
 import { ActionError } from "@/lib/action-result";
+import { DAY_MS } from "@/lib/dates";
 import type { CurrentUser } from "@/server/auth/dal";
 import { db, type Tx } from "@/server/db";
 
-const TOKEN_TTL = 90 * 24 * 60 * 60 * 1000;
+/** 个人访问令牌有效期 */
+const TOKEN_TTL = 90 * DAY_MS;
 const activeUser = { status: "ACTIVE", mustChangePassword: false } as const;
 const metadata = {
   id: true,

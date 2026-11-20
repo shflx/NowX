@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { AcceptReplyButton, ReplyComposer, TopicManageActions } from "@/features/discussions/components/topic-actions";
 import { TopicStatusBadge } from "@/features/discussions/components/topic-status-badge";
 import { getTopic, incrementTopicView, listFaq } from "@/features/discussions/queries";
+import { ASSISTANT_NAME } from "@/lib/constants";
 import { formatRelative } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
 import { routes } from "@/lib/routes";
@@ -174,7 +175,7 @@ function Post({ author, assistant, accepted, time, body, action }: PostProps) {
       <UserAvatar user={author} assistant={assistant} size="lg" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-sm font-semibold">
-          {assistant ? "项目助手" : (author?.name ?? "已删除用户")}
+          {assistant ? ASSISTANT_NAME : (author?.name ?? "已删除用户")}
           {assistant && <StatusBadge tone="accent">Agent</StatusBadge>}
           {accepted && (
             <StatusBadge tone="ok">

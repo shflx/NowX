@@ -11,6 +11,7 @@ import { TopicStatusBadge } from "@/features/discussions/components/topic-status
 import { countTopics, listTopics } from "@/features/discussions/queries";
 import { TOPIC_FILTER_LABEL, TOPIC_FILTERS, type TopicFilter } from "@/features/discussions/schemas";
 import { listProjectMembers } from "@/features/projects/queries";
+import { ASSISTANT_MENTION } from "@/lib/constants";
 import { formatRelative } from "@/lib/dates";
 import { requirementCode, taskCode } from "@/lib/format";
 import { routes } from "@/lib/routes";
@@ -78,7 +79,7 @@ export default async function DiscussionsPage({ params, searchParams }: PageProp
                 <SparklesIcon className="size-3.5" />
                 小提示
               </div>
-              在帖子里 @项目助手，它会从任务、材料和 FAQ 中查找线索。
+              在帖子里 {ASSISTANT_MENTION}，它会从任务、材料和 FAQ 中查找线索。
             </div>
           )}
         </nav>

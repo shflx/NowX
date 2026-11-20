@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAction } from "@/hooks/use-action";
+import { ASSISTANT_MENTION } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 
 import { createTopic, getTopicLinkOptions, suggestSimilarTopics } from "../actions";
@@ -120,7 +121,7 @@ function TopicForm({ projectId, projectKey, members, currentUserId, defaultLink,
           </div>
         )}
         <FormField label="详细描述" htmlFor="topic-body" error={create.fieldErrors.body}>
-          <Textarea id="topic-body" name="body" rows={6} placeholder="背景、你尝试过什么、期望的结果……支持 Markdown，输入 @项目助手 可以让助手帮忙查找" />
+          <Textarea id="topic-body" name="body" rows={6} placeholder={`背景、你尝试过什么、期望的结果……支持 Markdown，输入 ${ASSISTANT_MENTION} 可以让助手帮忙查找`} />
         </FormField>
         <div className="grid grid-cols-2 gap-3">
           <FormField label="希望谁来回答（可选）">

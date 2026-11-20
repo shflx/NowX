@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { after } from "next/server";
 
 import { ActionError, parseInput } from "@/lib/action-result";
+import { ASSISTANT_MENTION } from "@/lib/constants";
 import { requirementCode, taskCode } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { sharesKeyword } from "@/lib/text";
@@ -25,7 +26,7 @@ const canManage = (user: CurrentUser, topic: { authorId: string; assigneeId: str
 
 /** 正文 @项目助手 时，在响应返回后由助手补充回复 */
 function maybeSummonAssistant(topicId: string, text: string) {
-  if (appConfig.assistantEnabled && text.includes("@项目助手")) {
+  if (appConfig.assistantEnabled && text.includes(ASSISTANT_MENTION)) {
     after(() => replyAsAssistant(topicId));
   }
 }

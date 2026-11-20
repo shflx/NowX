@@ -5,13 +5,13 @@ import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 
 import { SESSION_COOKIE } from "@/lib/cookies";
+import { DAY_MS } from "@/lib/dates";
 import { db } from "@/server/db";
 
-const DAY = 24 * 60 * 60 * 1000;
 /** 会话有效期 */
-const SESSION_TTL = 30 * DAY;
+const SESSION_TTL = 30 * DAY_MS;
 /** 剩余有效期少于该值时自动续期（滑动过期） */
-const RENEW_THRESHOLD = 15 * DAY;
+const RENEW_THRESHOLD = 15 * DAY_MS;
 
 // Cookie 中保存随机令牌，数据库只保存其摘要：即使数据库泄露也无法直接冒用会话
 function hashToken(token: string) {

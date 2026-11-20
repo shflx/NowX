@@ -16,6 +16,10 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   CANCELED: "已取消",
 };
 
+/** 项目助手的显示名称；在帖子中 @ 该名称会召唤助手回复 */
+export const ASSISTANT_NAME = "项目助手";
+export const ASSISTANT_MENTION = `@${ASSISTANT_NAME}`;
+
 /** 未完成的任务状态：计入周期剩余、逾期判断与顺延（不含已完成、已取消） */
 export const OPEN_TASK_STATUSES: TaskStatus[] = ["TODO", "IN_PROGRESS", "IN_REVIEW"];
 
