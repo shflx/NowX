@@ -26,7 +26,7 @@ export default async function AnnouncementsPage({ params }: PageProps<"/projects
       <PageHeader
         title="公告"
         description="迭代启动、环境变更、规范调整等重要通知；置顶公告会显示在所有成员的工作台"
-        actions={<PublishAnnouncementButton projectId={project.id} canPin={admin} />}
+        actions={<PublishAnnouncementButton projectId={project.id} />}
       />
       <div className="flex max-w-3xl flex-col gap-3">
         {announcements.length === 0 && <p className="rounded-lg border bg-card py-12 text-center text-sm text-muted-foreground">还没有公告</p>}
@@ -44,7 +44,6 @@ export default async function AnnouncementsPage({ params }: PageProps<"/projects
                 <AnnouncementActions
                   projectId={project.id}
                   announcement={{ id: a.id, title: a.title, body: a.body, pinned: a.pinned }}
-                  canPin={admin}
                   canManage={a.authorId === user.id || admin}
                 />
               </div>

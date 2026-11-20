@@ -13,14 +13,14 @@ import { requireProjectAccess } from "@/server/permissions";
 
 import { announcementSchema } from "./schemas";
 
-/** 发布公告：所有成员可发布，只有管理员可以置顶；发布后通知项目全员 */
+/** 发布公告：项目成员都可以发布并置顶；发布后通知项目全员 */
 export async function publishAnnouncement(projectId: string, input: unknown) {
   return runAction(async () => {
     const { user, project } = await requireProjectAccess(projectId);
     const data = parseInput(announcementSchema, input);
 
     const announcement = await db.announcement.create({
-      data: { projectId, title: data.title, body: data.body, pinned: isAdmin(user) && data.pinned, authorId: user.id },
+      data: { projectId, title: data.title, body: data.body, pinned: data.pinned, authorId: user.id },
     });
     const href = `/projects/${project.key}/announcements`;
     await recordActivity({ projectId, actorId: user.id, verb: "发布了公告", target: announcement.title, href });
@@ -38,7 +38,7 @@ export async function publishAnnouncement(projectId: string, input: unknown) {
   });
 }
 
-/** 编辑公告：发布人或管理员；只有管理员可以修改置顶状态。编辑不再重复通知成员 */
+/** 编辑公告：发布人或管理员。编辑不再重复通知成员 */
 export async function updateAnnouncement(announcementId: string, input: unknown) {
   return runAction(async () => {
     const announcement = await db.announcement.findUnique({ where: { id: announcementId } });
@@ -49,19 +49,19 @@ export async function updateAnnouncement(announcementId: string, input: unknown)
 
     await db.announcement.update({
       where: { id: announcementId },
-      data: { title: data.title, body: data.body, ...(isAdmin(user) ? { pinned: data.pinned } : {}), editedAt: new Date() },
+      data: { title: data.title, body: data.body, pinned: data.pinned, editedAt: new Date() },
     });
     publishProjectChange(announcement.projectId);
     refresh();
   });
 }
 
+/** 置顶 / 取消置顶：项目成员都可以操作 */
 export async function setAnnouncementPinned(announcementId: string, pinned: boolean) {
   return runAction(async () => {
     const announcement = await db.announcement.findUnique({ where: { id: announcementId } });
     if (!announcement) throw new ActionError("公告不存在");
-    const { user } = await requireProjectAccess(announcement.projectId);
-    if (!isAdmin(user)) throw new ActionError("只有管理员可以置顶公告");
+    await requireProjectAccess(announcement.projectId);
 
     await db.announcement.update({ where: { id: announcementId }, data: { pinned } });
     publishProjectChange(announcement.projectId);
