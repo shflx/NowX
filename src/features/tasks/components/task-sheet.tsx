@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon, MessagesSquareIcon, LinkIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { BanIcon, HashIcon, MessagesSquareIcon, LinkIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -74,10 +74,18 @@ export function TaskSheet({ task, options, currentUser }: Props) {
   const save = (patch: Record<string, unknown>) => update.run(patch);
   const remove = useAction(deleteTask, { successMessage: `已删除 ${task.code}`, onSuccess: close });
 
-  async function copyLink() {
-    await navigator.clipboard.writeText(`${window.location.origin}${routes.task(projectKey, task.number)}`).catch(() => {});
-    toast.success("已复制任务链接");
+  async function copy(text: string, message: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(message);
+    } catch {
+      toast.error("复制失败，请检查浏览器的剪贴板权限");
+    }
   }
+
+  // 编号 + 标题 + 链接：贴到飞书等聊天工具里能直接看出是哪个任务
+  const copyLink = () =>
+    copy(`${task.code} ${task.title}\n${window.location.origin}${routes.task(projectKey, task.number)}`, "已复制任务标题和链接");
 
   return (
     <Sheet open onOpenChange={(open) => !open && close()}>
@@ -100,6 +108,7 @@ export function TaskSheet({ task, options, currentUser }: Props) {
             <ActionMenu
               label="任务操作"
               items={[
+                { label: "复制编号", icon: HashIcon, onSelect: () => copy(task.code, `已复制 ${task.code}`) },
                 {
                   label: "删除任务",
                   icon: Trash2Icon,
