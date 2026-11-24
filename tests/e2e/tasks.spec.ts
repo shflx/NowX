@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { login, pick, uniq } from "./helpers";
 
-test("新建任务后在详情中添加子任务、评论并修改状态", async ({ page }) => {
+test("新建任务后编辑详情并在看板拖动卡片", async ({ page }) => {
   const title = `E2E 任务 ${uniq()}`;
   await login(page, "linzhou");
   await page.goto("/projects/CRM/tasks");
@@ -28,7 +28,17 @@ test("新建任务后在详情中添加子任务、评论并修改状态", async
 
   // 关闭详情后，卡片出现在「进行中」列
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("region", { name: "进行中" }).getByText(title)).toBeVisible();
+  const card = page.getByRole("region", { name: "进行中" }).getByRole("link", { name: title });
+  const todo = page.getByRole("region", { name: "待办" });
+  await card.scrollIntoViewIfNeeded();
+  const source = (await card.boundingBox())!;
+  const target = (await todo.getByRole("heading").boundingBox())!;
+  await page.mouse.move(source.x + 10, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x + 20, target.y + 15, { steps: 12 });
+  await page.mouse.up();
+  await expect(page.getByText(/CRM-\d+ → 待办/)).toBeVisible();
+  await expect(todo.getByRole("link", { name: title })).toBeVisible();
 });
 
 test("列表视图按需求分组展示", async ({ page }) => {
