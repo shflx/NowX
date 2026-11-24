@@ -1,5 +1,6 @@
 import "server-only";
 
+import { listCycles } from "@/features/cycles/queries";
 import type { Prisma } from "@/generated/prisma/client";
 import type { RequirementStatus, TaskStatus } from "@/generated/prisma/enums";
 import { ActionError } from "@/lib/action-result";
@@ -115,6 +116,16 @@ export async function listProjects(user: CurrentUser, page: Page) {
     take: page.limit + 1,
   });
   return paged(rows, page);
+}
+
+export async function listProjectCycles(user: CurrentUser, input: ProjectInput) {
+  const { project, where } = await projectScope(user, input);
+  const cycles = await listCycles(project.id, where.project);
+  return {
+    items: cycles.map(({ id, name, status, startDate, endDate, goal, counts, total, done, remaining, percent }) => ({
+      id, name, status, startDate, endDate, goal, counts, total, done, remaining, percent,
+    })),
+  };
 }
 
 export async function listTasks(user: CurrentUser, input: ListInput & { status?: TaskStatus; assigneeId?: string | null }) {

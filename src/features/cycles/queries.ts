@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { requirementCode } from "@/lib/format";
 import { toDateString } from "@/lib/dates";
 import { appConfig, today } from "@/server/config";
@@ -8,11 +9,11 @@ import { db } from "@/server/db";
 import { burndown, countByStatus, summarize, timeline } from "./stats";
 
 /** 项目的全部周期及各自的进度 */
-export async function listCycles(projectId: string) {
+export async function listCycles(projectId: string, project?: Prisma.ProjectWhereInput) {
   const cycles = await db.cycle.findMany({
-    where: { projectId },
+    where: { projectId, project },
     orderBy: { startDate: "asc" },
-    include: { tasks: { where: { parentId: null }, select: { status: true } } },
+    include: { tasks: { where: { projectId, parentId: null }, select: { status: true } } },
   });
 
   return cycles.map(({ tasks, ...cycle }) => {

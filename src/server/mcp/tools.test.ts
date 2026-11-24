@@ -48,6 +48,7 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
       data: {
         projectId: project.id,
         name: "一期",
+        goal: "交付登录",
         status: "ACTIVE",
         startDate: new Date("2026-11-01"),
         endDate: new Date("2026-11-15"),
@@ -107,7 +108,7 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
     vi.unstubAllEnvs();
   });
 
-  it("只注册五个只读工具，并按角色返回活跃项目", async () => {
+  it("注册只读工具，并按角色返回活跃项目", async () => {
     const { tools } = await memberClient.listTools();
     expect(tools.map((tool) => tool.name)).toEqual([
       "list_projects",
@@ -115,6 +116,7 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
       "get_task",
       "list_requirements",
       "get_requirement",
+      "list_cycles",
     ]);
     expect(tools.every((tool) => tool.annotations?.readOnlyHint)).toBe(true);
     const projects = async (client: Client) => {
@@ -188,8 +190,18 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
     expect(result.structuredContent).toEqual({ items: [expect.objectContaining({ number: 2 })], nextOffset: null });
   });
 
-  it("四个记录工具统一隐藏无权、归档和不存在的项目", async () => {
-    for (const name of ["list_tasks", "get_task", "list_requirements", "get_requirement"]) {
+  it("返回可用于任务筛选的周期 ID 和进度", async () => {
+    const result = await memberClient.callTool({ name: "list_cycles", arguments: { projectKey: joined } });
+    expect(result.structuredContent).toMatchObject({
+      items: [{ id: cycleId, name: "一期", status: "ACTIVE", startDate: "2026-11-01", endDate: "2026-11-15", goal: "交付登录", counts: { IN_PROGRESS: 1 }, total: 1, done: 0, remaining: 1, percent: 0 }],
+    });
+    const { items: [cycle] } = result.structuredContent as { items: { id: string }[] };
+    const tasks = await memberClient.callTool({ name: "list_tasks", arguments: { projectKey: joined, cycle: cycle.id } });
+    expect(tasks.structuredContent).toMatchObject({ items: [{ code: `${joined}-1` }] });
+  });
+
+  it("项目记录工具统一隐藏无权、归档和不存在的项目", async () => {
+    for (const name of ["list_tasks", "get_task", "list_requirements", "get_requirement", "list_cycles"]) {
       const args = (projectKey: string) => ({ projectKey, ...(name.startsWith("get_") ? { number: 1 } : {}) });
       for (const [client, key] of [
         [memberClient, privateProject],

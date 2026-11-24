@@ -8,7 +8,7 @@ import { RequirementStatus, TaskStatus } from "@/generated/prisma/enums";
 import { ActionError } from "@/lib/action-result";
 import type { CurrentUser } from "@/server/auth/dal";
 
-import { getRequirement, getTask, listProjects, listRequirements, listTasks } from "./queries";
+import { getRequirement, getTask, listProjectCycles, listProjects, listRequirements, listTasks } from "./queries";
 
 const maxInt = 2_147_483_647;
 const recordNumber = z.union([z.number().int().positive().max(maxInt), z.string().regex(/^(?:[A-Za-z]{1,6}-)?[1-9]\d{0,9}$/)]);
@@ -101,6 +101,15 @@ export function createMcpServer(user: CurrentUser) {
       annotations: toolAnnotations.read,
     },
     (input) => toolResult(() => getRequirement(user, input)),
+  );
+  server.registerTool(
+    "list_cycles",
+    {
+      description: "列出项目周期及顶层任务进度，返回可用于筛选和排期的周期 ID。",
+      inputSchema: z.strictObject({ projectKey }),
+      annotations: toolAnnotations.read,
+    },
+    (input) => toolResult(() => listProjectCycles(user, input)),
   );
 
   return server;
