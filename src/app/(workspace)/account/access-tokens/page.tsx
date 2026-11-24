@@ -15,7 +15,7 @@ export default async function AccessTokensPage() {
 
   return (
     <>
-      <PageHeader title="个人访问令牌" description="让外部 Agent 以你的权限读取未归档项目的任务和需求。令牌有效期为 90 天。" />
+      <PageHeader title="个人访问令牌" description="让外部 Agent 以你的权限查看未归档项目及其周期，并查看、新建和修改需求与任务。令牌有效期为 90 天。" />
       <SectionCard title="MCP 接入" className="mb-4">
         <p className="text-muted-foreground mb-2 text-sm">
           将以下配置粘贴到 MCP 客户端，并把 &lt;token&gt; 替换为令牌；创建令牌时也可直接复制已填好令牌的配置。

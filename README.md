@@ -26,14 +26,14 @@ pnpm dev                      # http://localhost:3000
 
 在账号菜单打开「个人访问令牌」并创建令牌。将管理页上的 `/api/mcp` 地址添加到支持 Streamable HTTP 的客户端，配置请求头 `Authorization: Bearer <token>`。部署时将 `APP_URL` 设为站点的 HTTPS 访问地址。
 
-令牌有效期为 90 天，可在管理页吊销。每个账号每分钟可发出 120 个 MCP POST 请求。外部客户端可以列出可访问的未归档项目，并读取其任务与需求。
+令牌有效期为 90 天，可在管理页吊销。每个账号每分钟可发出 120 个 MCP POST 请求。外部客户端使用令牌所属账号的权限，可查看未归档项目的周期、任务和需求，并新建和修改需求与任务。项目成员可访问自己加入的项目，管理员可访问所有未归档项目。
 
 ## 常用命令
 
 | 命令 | 说明 |
 |---|---|
 | `pnpm typecheck` / `pnpm lint` | 类型检查 / 代码检查 |
-| `pnpm test` | Vitest（`src/**/*.test.ts`），设置 `NOWX_MCP_TEST_DATABASE_URL` 后同时运行令牌和查询工具的 PostgreSQL 用例。请使用已应用迁移的测试库 |
+| `pnpm test` | Vitest（`src/**/*.test.ts`），设置 `NOWX_MCP_TEST_DATABASE_URL` 后同时运行令牌和 MCP 工具的 PostgreSQL 用例。请使用已应用迁移的测试库 |
 | `pnpm test:e2e` | 端到端测试（依赖演示数据；未安装 Playwright 浏览器时加 `PLAYWRIGHT_CHANNEL=chrome`） |
 | `pnpm db:migrate` | 修改 `prisma/schema.prisma` 后生成并执行迁移 |
 | `pnpm db:studio` | 浏览数据库 |

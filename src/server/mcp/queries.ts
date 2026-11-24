@@ -41,7 +41,7 @@ function activeProjectScope(user: CurrentUser): Prisma.ProjectWhereInput {
   return { archivedAt: null, ...(isAdmin(user) ? {} : { members: { some: { userId: user.id } } }) };
 }
 
-async function projectScope(user: CurrentUser, { projectKey }: ProjectInput) {
+export async function projectScope(user: CurrentUser, { projectKey }: ProjectInput) {
   const accessible = activeProjectScope(user);
   const project = await db.project.findFirst({
     where: { ...accessible, key: projectKey.toUpperCase() },
