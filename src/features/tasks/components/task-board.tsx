@@ -112,7 +112,7 @@ function Column({
     <section
       ref={setNodeRef}
       aria-label={TASK_STATUS_LABEL[status]}
-      className={cn("min-h-52 rounded-lg bg-secondary p-2 transition-colors", isOver && "bg-accent-soft ring-2 ring-primary ring-inset")}
+      className={cn("min-h-52 rounded-lg p-2 transition-colors", isOver && "bg-accent-soft ring-2 ring-primary ring-inset")}
     >
       <h2 className="flex items-center gap-2 px-1.5 pt-1 pb-2.5 text-sm font-semibold">
         <TaskStatusIcon status={status} />
