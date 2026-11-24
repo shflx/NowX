@@ -40,6 +40,8 @@ test("外部 MCP 客户端可用站内令牌初始化、发现工具并查询任
       "list_requirements",
       "get_requirement",
       "list_cycles",
+      "create_requirement",
+      "update_requirement",
     ]);
 
     const call = (name: string, args: Record<string, unknown>) => client.callTool({ name, arguments: args });

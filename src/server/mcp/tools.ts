@@ -4,10 +4,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
+import { requirementSchema } from "@/features/requirements/schemas";
 import { RequirementStatus, TaskStatus } from "@/generated/prisma/enums";
 import { ActionError } from "@/lib/action-result";
 import type { CurrentUser } from "@/server/auth/dal";
 
+import { createProjectRequirement, updateProjectRequirement } from "./mutations";
 import { getRequirement, getTask, listProjectCycles, listProjects, listRequirements, listTasks } from "./queries";
 
 const maxInt = 2_147_483_647;
@@ -39,6 +41,26 @@ const person = z
   .union([z.literal("me"), z.cuid(), z.null()])
   .optional()
   .describe("账号 ID、me（本人）或 null（未指派）");
+const cycleId = z.cuid().nullable().describe("list_cycles 返回的周期 ID，或 null（未排期）");
+const requirementNumber = recordNumber.describe("数字编号或需求编号，例如 R-3");
+const requirementWriteFields = {
+  ...requirementSchema.shape,
+  ownerId: person,
+  cycleId,
+};
+const createRequirementInput = z.strictObject({
+  ...requirementWriteFields,
+  projectKey,
+  status: requirementSchema.shape.status.default("BACKLOG"),
+  ownerId: person.default(null),
+  cycleId: cycleId.default(null),
+});
+const updateRequirementInput = z.strictObject({
+  ...requirementWriteFields,
+  summary: requirementSchema.shape.summary.removeDefault(),
+  docs: requirementSchema.shape.docs.removeDefault(),
+}).partial().extend({ projectKey, number: requirementNumber });
+
 const toolAnnotations = {
   read: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   write: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -97,7 +119,7 @@ export function createMcpServer(user: CurrentUser) {
     "get_requirement",
     {
       description: "读取项目需求的摘要、计划交付周期、文档链接和关联任务。",
-      inputSchema: z.strictObject({ projectKey, number: recordNumber.describe("数字编号或需求编号，例如 R-3") }),
+      inputSchema: z.strictObject({ projectKey, number: requirementNumber }),
       annotations: toolAnnotations.read,
     },
     (input) => toolResult(() => getRequirement(user, input)),
@@ -110,6 +132,24 @@ export function createMcpServer(user: CurrentUser) {
       annotations: toolAnnotations.read,
     },
     (input) => toolResult(() => listProjectCycles(user, input)),
+  );
+  server.registerTool(
+    "create_requirement",
+    {
+      description: "在项目中新建需求，返回需求编号。",
+      inputSchema: createRequirementInput,
+      annotations: toolAnnotations.write,
+    },
+    (input) => toolResult(() => createProjectRequirement(user, input), "write"),
+  );
+  server.registerTool(
+    "update_requirement",
+    {
+      description: "修改指定需求的部分字段。docs 整体替换链接列表。更换周期时同时移动原周期中未完成的关联任务。",
+      inputSchema: updateRequirementInput,
+      annotations: toolAnnotations.write,
+    },
+    (input) => toolResult(() => updateProjectRequirement(user, input), "write"),
   );
 
   return server;

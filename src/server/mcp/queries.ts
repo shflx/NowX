@@ -58,7 +58,7 @@ function paged<T>(rows: T[], { limit, offset }: Page) {
   return { items: rows.slice(0, limit), nextOffset: rows.length > limit ? offset + limit : null };
 }
 
-function numberFor(value: number | string, prefix: string) {
+export function numberFor(value: number | string, prefix: string) {
   const digits = String(value)
     .toUpperCase()
     .replace(new RegExp(`^${prefix}-`), "");

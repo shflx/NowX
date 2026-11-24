@@ -10,13 +10,14 @@ vi.mock("server-only", () => ({}));
 
 const testDatabaseUrl = process.env.NOWX_MCP_TEST_DATABASE_URL;
 
-describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
+describe.skipIf(!testDatabaseUrl)("MCP 工具（PostgreSQL）", () => {
   let db: typeof import("@/server/db").db;
   let member: CurrentUser;
   let admin: CurrentUser;
   let memberClient: Client;
   let adminClient: Client;
   let cycleId: string;
+  let projectId: string;
   const prefix = randomUUID().replace(/[\d-]/g, "").toUpperCase().padEnd(4, "X").slice(0, 4);
   const joined = `${prefix}A`;
   const privateProject = `${prefix}B`;
@@ -30,8 +31,9 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
     member = await db.user.create({ data: { ...account, login: `test-${randomUUID()}` } });
     admin = await db.user.create({ data: { ...account, login: `test-${randomUUID()}`, role: "ADMIN" } });
     const project = await db.project.create({
-      data: { key: joined, name: "已加入项目", color: "#fff", members: { create: { userId: member.id } } },
+      data: { key: joined, name: "已加入项目", color: "#fff", requirementSeq: 2, taskSeq: 2, members: { create: { userId: member.id } } },
     });
+    projectId = project.id;
     await db.project.create({ data: { key: privateProject, name: "未加入项目", color: "#fff" } });
     await db.project.create({
       data: {
@@ -108,7 +110,7 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
     vi.unstubAllEnvs();
   });
 
-  it("注册只读工具，并按角色返回活跃项目", async () => {
+  it("标注工具的读写权限，并按角色返回活跃项目", async () => {
     const { tools } = await memberClient.listTools();
     expect(tools.map((tool) => tool.name)).toEqual([
       "list_projects",
@@ -117,8 +119,12 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
       "list_requirements",
       "get_requirement",
       "list_cycles",
+      "create_requirement",
+      "update_requirement",
     ]);
-    expect(tools.every((tool) => tool.annotations?.readOnlyHint)).toBe(true);
+    for (const tool of tools) {
+      expect(tool.annotations?.readOnlyHint).toBe(/^(list|get)_/.test(tool.name));
+    }
     const projects = async (client: Client) => {
       const result = await client.callTool({ name: "list_projects", arguments: {} });
       expect(result.isError).toBeFalsy();
@@ -218,5 +224,48 @@ describe.skipIf(!testDatabaseUrl)("MCP 查询工具（PostgreSQL）", () => {
     expect(
       (await adminClient.callTool({ name: "list_tasks", arguments: { projectKey: privateProject } })).structuredContent,
     ).toEqual({ items: [], nextOffset: null });
+  });
+
+  it("新建需求，部分更新保留摘要和链接，调整周期只移动未完成任务", async () => {
+    const call = (name: string, args: Record<string, unknown>) =>
+      memberClient.callTool({ name, arguments: { projectKey: joined, ...args } });
+    const doc = { url: "https://example.com/design", name: "设计" };
+    expect((await call("create_requirement", { title: "周期交付", summary: "验收摘要", ownerId: "me", cycleId, docs: [doc] })).structuredContent)
+      .toEqual({ number: 3, code: "R-3" });
+    const number = "R-3";
+    expect((await call("update_requirement", { number, status: "DESIGN" })).isError).toBeFalsy();
+    expect((await call("get_requirement", { number })).structuredContent).toMatchObject({
+      title: "周期交付", summary: "验收摘要", status: "DESIGN", owner: { id: member.id }, plannedCycle: { id: cycleId }, docs: [doc],
+    });
+    const requirement = await db.requirement.findUniqueOrThrow({ where: { projectId_number: { projectId, number: 3 } } });
+    const target = await db.cycle.create({ data: { projectId, name: "下期", startDate: new Date("2026-11-16"), endDate: new Date("2026-11-30") } });
+    await db.task.createMany({ data: [
+      { projectId, number: 100, title: "未完成", creatorId: member.id, cycleId, requirementId: requirement.id },
+      { projectId, number: 101, title: "已完成", creatorId: member.id, cycleId, requirementId: requirement.id, status: "DONE" },
+    ] });
+    expect((await call("update_requirement", { number, cycleId: target.id, docs: [], ownerId: null })).structuredContent)
+      .toMatchObject({ code: number, moved: 1, targetName: "下期" });
+    expect(await db.requirement.findUnique({ where: { id: requirement.id } })).toMatchObject({ cycleId: target.id, carriedFromCycleId: cycleId });
+    expect((await call("get_requirement", { number })).structuredContent).toMatchObject({
+      docs: [], owner: null, tasks: [{ cycle: { id: target.id } }, { cycle: { id: cycleId } }],
+    });
+    expect(await db.activity.findFirst({ where: { projectId, verb: "把需求排入「下期」" } })).toMatchObject({ actorId: member.id });
+  });
+
+  it("需求写入按项目授权并拒绝无效排期、负责人和编号", async () => {
+    const ended = await db.cycle.create({ data: { projectId, name: "已结束", status: "ENDED", startDate: new Date("2026-10-01"), endDate: new Date("2026-10-15") } });
+    const title = "授权与校验";
+    for (const [client, name, args, message] of [
+      [memberClient, "create_requirement", { projectKey: privateProject, title }, "项目不存在或无权访问"],
+      [adminClient, "update_requirement", { projectKey: archived, number: 1, title }, "项目不存在或无权访问"],
+      [memberClient, "create_requirement", { projectKey: joined, title, ownerId: admin.id }, "所选成员不在该项目中"],
+      [memberClient, "update_requirement", { projectKey: joined, number: 1, title, cycleId: ended.id }, "不能把需求排入已结束的周期"],
+      [memberClient, "update_requirement", { projectKey: joined, number: 99, title }, "需求不存在"],
+    ] as const) {
+      expect(await client.callTool({ name, arguments: args })).toMatchObject({ isError: true, content: [{ type: "text", text: message }] });
+    }
+    expect(await db.requirement.findUnique({ where: { projectId_number: { projectId, number: 1 } } })).toMatchObject({ title: "登录流程" });
+    expect((await adminClient.callTool({ name: "create_requirement", arguments: { projectKey: privateProject, title } })).structuredContent)
+      .toEqual({ number: 1, code: "R-1" });
   });
 });
