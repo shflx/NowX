@@ -5,11 +5,12 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import { requirementSchema } from "@/features/requirements/schemas";
+import { taskFieldsSchema } from "@/features/tasks/schemas";
 import { RequirementStatus, TaskStatus } from "@/generated/prisma/enums";
 import { ActionError } from "@/lib/action-result";
 import type { CurrentUser } from "@/server/auth/dal";
 
-import { createProjectRequirement, updateProjectRequirement } from "./mutations";
+import { createProjectRequirement, createProjectTask, updateProjectRequirement, updateProjectTask } from "./mutations";
 import { getRequirement, getTask, listProjectCycles, listProjects, listRequirements, listTasks } from "./queries";
 
 const maxInt = 2_147_483_647;
@@ -61,6 +62,27 @@ const updateRequirementInput = z.strictObject({
   docs: requirementSchema.shape.docs.removeDefault(),
 }).partial().extend({ projectKey, number: requirementNumber });
 
+const taskNumber = recordNumber.describe("数字编号或任务编号，例如 CRM-12");
+const taskWriteFields = z.strictObject({
+  ...taskFieldsSchema.omit({ requirementId: true }).shape,
+  assigneeId: person,
+  dueDate: z.iso.date().nullable().describe("截止日期（YYYY-MM-DD），或 null"),
+  cycleId,
+  requirement: requirementNumber.nullable().describe("同项目的需求编号，例如 R-3；null 表示不关联"),
+});
+const createTaskInput = taskWriteFields.extend({
+  projectKey,
+  status: taskWriteFields.shape.status.default("TODO"),
+  priority: taskWriteFields.shape.priority.default("MEDIUM"),
+  assigneeId: person.default(null),
+  dueDate: taskWriteFields.shape.dueDate.default(null),
+  cycleId: cycleId.default(null),
+  requirement: taskWriteFields.shape.requirement.default(null),
+});
+const updateTaskInput = taskWriteFields.extend({
+  description: taskWriteFields.shape.description.removeDefault(),
+}).partial().extend({ projectKey, number: taskNumber });
+
 const toolAnnotations = {
   read: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   write: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -101,7 +123,7 @@ export function createMcpServer(user: CurrentUser) {
     "get_task",
     {
       description: "读取项目任务的描述、负责人、子任务和关联需求。",
-      inputSchema: z.strictObject({ projectKey, number: recordNumber.describe("数字编号或任务编号，例如 CRM-12") }),
+      inputSchema: z.strictObject({ projectKey, number: taskNumber }),
       annotations: toolAnnotations.read,
     },
     (input) => toolResult(() => getTask(user, input)),
@@ -150,6 +172,24 @@ export function createMcpServer(user: CurrentUser) {
       annotations: toolAnnotations.write,
     },
     (input) => toolResult(() => updateProjectRequirement(user, input), "write"),
+  );
+  server.registerTool(
+    "create_task",
+    {
+      description: "在项目中新建任务，可填写同项目的需求编号，返回任务编号。",
+      inputSchema: createTaskInput,
+      annotations: toolAnnotations.write,
+    },
+    (input) => toolResult(() => createProjectTask(user, input), "write"),
+  );
+  server.registerTool(
+    "update_task",
+    {
+      description: "修改指定任务的部分字段。任务不能直接设为 BLOCKED。",
+      inputSchema: updateTaskInput,
+      annotations: toolAnnotations.write,
+    },
+    (input) => toolResult(() => updateProjectTask(user, input), "write"),
   );
 
   return server;

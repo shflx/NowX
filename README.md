@@ -28,6 +28,8 @@ pnpm dev                      # http://localhost:3000
 
 令牌有效期为 90 天，可在管理页吊销。每个账号每分钟可发出 120 个 MCP POST 请求。外部客户端使用令牌所属账号的权限，可查看未归档项目的周期、任务和需求，并新建和修改需求与任务。项目成员可访问自己加入的项目，管理员可访问所有未归档项目。
 
+调用 `list_cycles` 获取周期 ID。写入需求或任务时，用 `cycleId` 指定周期。创建关联任务时，在 `requirement` 中填写 `create_requirement` 返回的 `code`。`update_requirement` 和 `update_task` 使用 `number` 指定记录编号，只修改传入的字段。
+
 ## 常用命令
 
 | 命令 | 说明 |

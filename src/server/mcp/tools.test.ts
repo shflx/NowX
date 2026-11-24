@@ -121,6 +121,8 @@ describe.skipIf(!testDatabaseUrl)("MCP 工具（PostgreSQL）", () => {
       "list_cycles",
       "create_requirement",
       "update_requirement",
+      "create_task",
+      "update_task",
     ]);
     for (const tool of tools) {
       expect(tool.annotations?.readOnlyHint).toBe(/^(list|get)_/.test(tool.name));
@@ -267,5 +269,55 @@ describe.skipIf(!testDatabaseUrl)("MCP 工具（PostgreSQL）", () => {
     expect(await db.requirement.findUnique({ where: { projectId_number: { projectId, number: 1 } } })).toMatchObject({ title: "登录流程" });
     expect((await adminClient.callTool({ name: "create_requirement", arguments: { projectKey: privateProject, title } })).structuredContent)
       .toEqual({ number: 1, code: "R-1" });
+  });
+
+  it("在需求下新建任务，完成后写入时间和动态，并通知新负责人", async () => {
+    const created = await memberClient.callTool({
+      name: "create_task",
+      arguments: { projectKey: joined, title: "MCP 任务", description: "保留描述", cycleId, requirement: "R-1", assigneeId: "me" },
+    });
+    const number = `${joined}-3`;
+    expect(created.structuredContent).toEqual({ number: 3, code: number });
+    const result = await adminClient.callTool({ name: "update_task", arguments: { projectKey: joined, number, status: "DONE" } });
+    expect(result.structuredContent).toMatchObject({ code: number, status: "DONE" });
+    expect((await memberClient.callTool({ name: "get_task", arguments: { projectKey: joined, number } })).structuredContent)
+      .toMatchObject({ description: "保留描述", requirement: { code: "R-1" }, cycle: { id: cycleId }, assignee: { id: member.id }, status: "DONE" });
+    const where = { projectId_number: { projectId, number: 3 } };
+    expect(await db.task.findUnique({ where })).toMatchObject({ completedAt: expect.any(Date) });
+    expect(await db.activity.findFirst({ where: { projectId, verb: "完成了任务", target: `${number} MCP 任务` } })).toMatchObject({ actorId: admin.id });
+
+    await memberClient.callTool({ name: "update_task", arguments: { projectKey: joined, number, status: "IN_PROGRESS", assigneeId: null } });
+    await adminClient.callTool({ name: "update_task", arguments: { projectKey: joined, number, assigneeId: member.id } });
+    expect(await db.task.findUnique({ where })).toMatchObject({ completedAt: null, assigneeId: member.id });
+    expect(await db.notification.findFirst({ where: { userId: member.id, text: { contains: `把任务 ${number}` } } })).not.toBeNull();
+  });
+
+  it("拒绝跨项目引用和直接阻塞，允许恢复进行中并留下评论", async () => {
+    const other = await db.project.findUniqueOrThrow({ where: { key: privateProject } });
+    const otherCycle = await db.cycle.create({ data: { projectId: other.id, name: "外部周期", startDate: new Date("2026-11-01"), endDate: new Date("2026-11-15") } });
+    await db.requirement.create({ data: { projectId: other.id, number: 200, title: "外部需求" } });
+    const title = "校验引用";
+    const call = (name: string, args: Record<string, unknown>) =>
+      memberClient.callTool({ name, arguments: { projectKey: joined, ...args } });
+    for (const [name, args, message] of [
+      ["create_task", { projectKey: privateProject, title }, "项目不存在或无权访问"],
+      ["update_task", { projectKey: archived, number: 1, title }, "项目不存在或无权访问"],
+      ["create_task", { title, cycleId: otherCycle.id }, "所选周期不存在"],
+      ["update_task", { number: 1, requirement: "R-200" }, "所选需求不存在"],
+      ["create_task", { title, assigneeId: admin.id }, "所选成员不在该项目中"],
+      ["create_task", { title, status: "BLOCKED" }, "新建的任务不能直接标记阻塞"],
+      ["update_task", { number: 1, status: "BLOCKED" }, "标记阻塞需要填写原因"],
+    ] as const) {
+      expect(await call(name, args)).toMatchObject({ isError: true, content: [{ type: "text", text: message }] });
+    }
+    const task = await db.task.create({ data: { projectId, number: 102, title: "恢复任务", creatorId: member.id, status: "BLOCKED", blockedAt: new Date() } });
+    expect(await call("update_task", { number: task.number, status: "DONE" })).toMatchObject({
+      isError: true, content: [{ type: "text", text: "阻塞中的任务只能恢复为进行中" }],
+    });
+    expect((await call("update_task", { number: task.number, status: "IN_PROGRESS" })).structuredContent).toMatchObject({ status: "IN_PROGRESS" });
+    expect(await db.task.findUnique({ where: { id: task.id } })).toMatchObject({ blockedAt: null });
+    expect(await db.taskComment.findFirst({ where: { taskId: task.id } })).toMatchObject({
+      authorId: member.id, body: expect.stringContaining("解除阻塞"),
+    });
   });
 });

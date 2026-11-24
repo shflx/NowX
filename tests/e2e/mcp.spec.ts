@@ -6,7 +6,7 @@ import { login, uniq } from "./helpers";
 
 test.use({ trace: "off" });
 
-test("外部 MCP 客户端可用站内令牌初始化、发现工具并查询任务与需求", async ({ baseURL, page, request }) => {
+test("外部 MCP 可用个人访问令牌排期并修改需求和任务，页面实时更新", async ({ baseURL, page, request }) => {
   await login(page, "chenxiao");
   await page.goto("/account/access-tokens");
   const name = `Streamable HTTP ${uniq()}`;
@@ -20,6 +20,7 @@ test("外部 MCP 客户端可用站内令牌初始化、发现工具并查询任
   const endpoint = new URL("/api/mcp", baseURL);
   const transport = new StreamableHTTPClientTransport(endpoint, { requestInit: { headers } });
   const client = new Client({ name: "nowx-http-test", version: "1.0.0" });
+  const projectPage = await page.context().newPage();
   try {
     const missing = await page.request.post(endpoint.href);
     expect(missing.status()).toBe(401);
@@ -42,6 +43,8 @@ test("外部 MCP 客户端可用站内令牌初始化、发现工具并查询任
       "list_cycles",
       "create_requirement",
       "update_requirement",
+      "create_task",
+      "update_task",
     ]);
 
     const call = (name: string, args: Record<string, unknown>) => client.callTool({ name, arguments: args });
@@ -70,12 +73,44 @@ test("外部 MCP 客户端可用站内令牌初始化、发现工具并查询任
       summary: expect.any(String),
     });
 
+    const projectKey = "CRM";
+    const eventRequest = projectPage.waitForRequest((request) => new URL(request.url()).pathname === "/api/events" && new URL(request.url()).searchParams.get("project") === projectKey);
+    await projectPage.goto("/projects/CRM/requirements");
+    await eventRequest;
+
+    const cycles = await call("list_cycles", { projectKey });
+    const cycle = (cycles.structuredContent as { items: { id: string; status: string }[] }).items.find(({ status }) => status === "ACTIVE");
+    expect(cycle).toBeDefined();
+    const cycleId = cycle!.id;
+    const title = `MCP 需求 ${uniq()}`;
+    const createdRequirement = await call("create_requirement", { projectKey, title, cycleId, ownerId: "me" });
+    expect(createdRequirement.structuredContent).toMatchObject({ code: expect.stringMatching(/^R-\d+$/) });
+    const { code: requirementCode, number: requirementNumber } = createdRequirement.structuredContent as { code: string; number: number };
+    await expect(projectPage.getByText(title, { exact: true })).toBeVisible();
+
+    await projectPage.getByText(title, { exact: true }).click();
+    await expect(projectPage).toHaveURL(`/projects/CRM/requirements/${requirementNumber}`);
+    const taskTitle = `MCP 任务 ${uniq()}`;
+    const createdTask = await call("create_task", { projectKey, title: taskTitle, requirement: requirementCode, cycleId, assigneeId: "me" });
+    expect(createdTask.structuredContent).toMatchObject({ code: expect.stringMatching(/^CRM-\d+$/) });
+    const taskCode = (createdTask.structuredContent as { code: string }).code;
+    await expect(projectPage.getByText(taskTitle, { exact: true })).toBeVisible();
+
+    const updatedTitle = `${title} 已更新`;
+    const updatedTaskTitle = `${taskTitle} 已更新`;
+    expect((await call("update_requirement", { projectKey, number: requirementCode, title: updatedTitle })).isError).toBeFalsy();
+    expect((await call("update_task", { projectKey, number: taskCode, title: updatedTaskTitle, status: "DONE" })).structuredContent)
+      .toMatchObject({ status: "DONE" });
+    await expect(projectPage.getByRole("heading", { name: updatedTitle })).toBeVisible();
+    await expect(projectPage.getByText(updatedTaskTitle, { exact: true })).toBeVisible();
+
     // 其他 API 接受原有 Cookie 会话，同时拒绝无 Cookie 的请求。
     const otherApi = "/api/materials/mcp-test-missing/download";
     expect((await request.get(otherApi, { headers })).status()).toBe(401);
     expect((await page.request.get(otherApi)).status()).toBe(404);
     expect((await request.get("/api/mcp/extra", { headers })).status()).toBe(401);
   } finally {
+    await projectPage.close();
     await client.close();
     const row = page.getByRole("row", { name: new RegExp(name) });
     await row.getByRole("button", { name: "吊销" }).click();

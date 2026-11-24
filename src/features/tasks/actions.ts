@@ -3,53 +3,21 @@
 import { refresh } from "next/cache";
 
 import { ActionError, parseInput } from "@/lib/action-result";
-import { TASK_STATUS_LABEL } from "@/lib/constants";
-import { fromDateString } from "@/lib/dates";
 import { taskCode } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { recordActivity } from "@/server/activity";
 import { type CurrentUser, isAdmin } from "@/server/auth/dal";
 import { runAction } from "@/server/action";
-import { appConfig, today } from "@/server/config";
 import { db } from "@/server/db";
 import { publishProjectChange } from "@/server/events";
 import { findMentionedMembers, notify } from "@/server/notifications";
-import { assertMembers, requireProjectAccess } from "@/server/permissions";
+import { requireProjectAccess } from "@/server/permissions";
 
 import { blockTaskSchema, commentSchema, createTaskSchema, subtaskSchema, updateTaskSchema } from "./schemas";
-import { BLOCK_COMMENT_PREFIX, blockedDays, canBlock, canChangeStatus, UNBLOCK_COMMENT_PREFIX, unblockSummary } from "./status-flow";
+import { createTaskRecord, nextTaskNumber, updateTaskRecord } from "./service";
+import { BLOCK_COMMENT_PREFIX, canBlock } from "./status-flow";
 
 type Project = { id: string; key: string };
-
-/** 校验周期、需求、负责人都属于该项目，防止跨项目关联 */
-async function assertTaskRefs(projectId: string, refs: { cycleId?: string | null; requirementId?: string | null; assigneeId?: string | null }) {
-  if (refs.cycleId && !(await db.cycle.findFirst({ where: { id: refs.cycleId, projectId } }))) {
-    throw new ActionError("所选周期不存在");
-  }
-  if (refs.requirementId && !(await db.requirement.findFirst({ where: { id: refs.requirementId, projectId } }))) {
-    throw new ActionError("所选需求不存在");
-  }
-  await assertMembers(projectId, [refs.assigneeId]);
-}
-
-/** 在事务中为项目分配下一个任务编号 */
-async function nextTaskNumber(tx: Parameters<Parameters<typeof db.$transaction>[0]>[0], projectId: string) {
-  const { taskSeq } = await tx.project.update({
-    where: { id: projectId },
-    data: { taskSeq: { increment: 1 } },
-    select: { taskSeq: true },
-  });
-  return taskSeq;
-}
-
-async function notifyAssigned(actor: CurrentUser, project: Project, task: { number: number; title: string; assigneeId: string | null }) {
-  await notify({
-    userIds: [task.assigneeId],
-    actorId: actor.id,
-    text: `${actor.name} 把任务 ${taskCode(project.key, task.number)}「${task.title}」分配给了你`,
-    href: routes.task(project.key, task.number),
-  });
-}
 
 /** 评论的通知：被 @ 的成员，以及任务负责人（已被 @ 的不重复通知） */
 async function notifyComment(
@@ -78,38 +46,9 @@ async function loadTask(taskId: string) {
 export async function createTask(projectId: string, input: unknown) {
   return runAction(async () => {
     const { user, project } = await requireProjectAccess(projectId);
-    const data = parseInput(createTaskSchema, input);
-    if (data.status === "BLOCKED") throw new ActionError("新建的任务不能直接标记阻塞");
-    await assertTaskRefs(projectId, data);
-
-    const task = await db.$transaction(async (tx) => {
-      const number = await nextTaskNumber(tx, projectId);
-      const created = await tx.task.create({
-        data: {
-          projectId,
-          number,
-          title: data.title,
-          description: data.description ?? "",
-          status: data.status ?? "TODO",
-          priority: data.priority,
-          assigneeId: data.assigneeId,
-          dueDate: data.dueDate ? fromDateString(data.dueDate) : null,
-          cycleId: data.cycleId,
-          requirementId: data.requirementId,
-          creatorId: user.id,
-        },
-      });
-      await recordActivity(
-        { projectId, actorId: user.id, verb: "新建了任务", target: `${taskCode(project.key, number)} ${created.title}`, href: routes.task(project.key, number) },
-        tx,
-      );
-      return created;
-    });
-
-    await notifyAssigned(user, project, task);
-    publishProjectChange(projectId);
+    const result = await createTaskRecord(user, project, parseInput(createTaskSchema, input));
     refresh();
-    return { number: task.number, code: taskCode(project.key, task.number) };
+    return result;
   });
 }
 
@@ -117,58 +56,10 @@ export async function createTask(projectId: string, input: unknown) {
 export async function updateTask(taskId: string, input: unknown) {
   return runAction(async () => {
     const { task, user, project } = await loadTask(taskId);
-    const data = parseInput(updateTaskSchema, input);
-    await assertTaskRefs(task.projectId, data);
-
-    const statusChanged = data.status !== undefined && data.status !== task.status;
-    if (statusChanged && !canChangeStatus(task.status, data.status!)) {
-      throw new ActionError(data.status === "BLOCKED" ? "标记阻塞需要填写原因" : "阻塞中的任务只能恢复为进行中");
-    }
-    const unblocked = statusChanged && task.status === "BLOCKED";
-
-    const updated = await db.task.update({
-      where: { id: taskId },
-      data: {
-        ...data,
-        dueDate: data.dueDate === undefined ? undefined : data.dueDate ? fromDateString(data.dueDate) : null,
-        // 完成时间随状态维护，用于燃尽图统计
-        completedAt: statusChanged ? (data.status === "DONE" ? new Date() : null) : undefined,
-        blockedAt: unblocked ? null : undefined,
-      },
-    });
-
-    if (statusChanged && (data.status === "DONE" || data.status === "IN_REVIEW")) {
-      await recordActivity({
-        projectId: task.projectId,
-        actorId: user.id,
-        verb: data.status === "DONE" ? (task.parentId ? "完成了子任务" : "完成了任务") : "提交了评审",
-        target: `${taskCode(project.key, task.number)} ${updated.title}`,
-        href: routes.task(project.key, task.number),
-      });
-    }
-    // 阻塞时长按更新前的 blockedAt 计算
-    if (unblocked) await recordUnblock(user, project, { ...task, title: updated.title });
-    if (data.assigneeId !== undefined && data.assigneeId !== task.assigneeId) {
-      await notifyAssigned(user, project, updated);
-    }
-
-    publishProjectChange(task.projectId);
+    const result = await updateTaskRecord(user, project, task, parseInput(updateTaskSchema, input));
     refresh();
-    return { status: updated.status, label: TASK_STATUS_LABEL[updated.status] };
+    return result;
   });
-}
-
-/** 解除阻塞：自动写一条评论说明阻塞时长，记录动态，并通知负责人（看板拖回、详情切换状态都会走到这里） */
-async function recordUnblock(actor: CurrentUser, project: Project, task: { id: string; number: number; title: string; assigneeId: string | null; blockedAt: Date | null }) {
-  const code = taskCode(project.key, task.number);
-  const href = routes.task(project.key, task.number);
-  const summary = task.blockedAt ? unblockSummary(blockedDays(task.blockedAt, today(), appConfig.timeZone)) : "已恢复为进行中";
-
-  await db.$transaction(async (tx) => {
-    await tx.taskComment.create({ data: { taskId: task.id, authorId: actor.id, body: `${UNBLOCK_COMMENT_PREFIX}${summary}` } });
-    await recordActivity({ projectId: project.id, actorId: actor.id, verb: "解除了阻塞", target: `${code} ${task.title}`, href }, tx);
-  });
-  await notify({ userIds: [task.assigneeId], actorId: actor.id, text: `${actor.name} 解除了任务 ${code} 的阻塞（${summary}）`, href });
 }
 
 /** 标记阻塞：仅限进行中的任务；阻塞原因作为一条评论保存，并通知负责人与被 @ 的成员 */
