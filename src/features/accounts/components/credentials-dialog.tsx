@@ -36,18 +36,18 @@ export function CredentialsDialog({ credentials, appUrl, onClose }: Props) {
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{created ? "账号已创建" : "密码已重置"}</DialogTitle>
           <DialogDescription>
             请把以下登录信息发给 <b className="text-foreground">{credentials.name}</b>。密码只显示这一次，关闭后无法再次查看。
           </DialogDescription>
         </DialogHeader>
-        <dl className="grid grid-cols-[72px_1fr] gap-y-2 rounded-lg border bg-muted/40 px-4 py-3 text-sm">
+        <dl className="grid grid-cols-[72px_minmax(0,1fr)] gap-y-2 rounded-lg border bg-muted/40 px-4 py-3 text-sm">
           {rows.map(([label, value]) => (
             <div key={label} className="contents">
               <dt className="text-muted-foreground">{label}</dt>
-              <dd className="font-mono select-all">{value}</dd>
+              <dd className="font-mono break-all select-all">{value}</dd>
             </div>
           ))}
         </dl>
