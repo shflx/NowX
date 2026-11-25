@@ -13,7 +13,7 @@ export function LoginForm() {
   const { onSubmit, pending, fieldErrors: errors, formError } = useFormAction(login);
 
   return (
-    <form onSubmit={onSubmit} className="flex w-full max-w-sm flex-col gap-5">
+    <form method="post" onSubmit={onSubmit} className="flex w-full max-w-sm flex-col gap-5">
       <div>
         <h1 className="text-2xl font-semibold">登录</h1>
         <p className="mt-1 text-sm text-muted-foreground">账号由管理员创建，如需开通请联系管理员</p>

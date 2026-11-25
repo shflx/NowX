@@ -13,7 +13,7 @@ export function ChangePasswordForm() {
   const { onSubmit, pending, fieldErrors: errors, formError } = useFormAction(changePassword);
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+    <form method="post" onSubmit={onSubmit} className="flex flex-col gap-5">
       <FormField label="当前密码" htmlFor="currentPassword" error={errors?.currentPassword}>
         <Input id="currentPassword" name="currentPassword" type="password" autoComplete="current-password" required />
       </FormField>
