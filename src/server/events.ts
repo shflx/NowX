@@ -2,18 +2,17 @@ import "server-only";
 
 import { EventEmitter } from "node:events";
 
+import { type LiveEvent, projectChannel } from "./event-channels";
+
+export { type LiveEvent, projectChannel, userChannel } from "./event-channels";
+
 // 进程内事件总线，用于向浏览器推送「数据已变化」的信号（SSE）。
 // 只适用于单实例部署；如需多实例，需要换成 Postgres LISTEN/NOTIFY 或 Redis。
-
-export type LiveEvent = { type: "changed" } | { type: "notification" };
 
 const globalForEvents = globalThis as unknown as { liveEvents?: EventEmitter };
 const emitter = globalForEvents.liveEvents ?? new EventEmitter();
 emitter.setMaxListeners(0);
 globalForEvents.liveEvents = emitter;
-
-export const projectChannel = (projectId: string) => `project:${projectId}`;
-export const userChannel = (userId: string) => `user:${userId}`;
 
 export function publish(channel: string, event: LiveEvent) {
   emitter.emit(channel, event);

@@ -24,6 +24,11 @@ export async function GET(request: NextRequest) {
     projectId = project.id;
   }
 
+  if (process.env.NOWX_WORKERS_BUILD === "1") {
+    const channel = projectId ? projectChannel(projectId) : userChannel(user.id);
+    return new Response(null, { status: 204, headers: { "X-NowX-Channel": channel } });
+  }
+
   const encoder = new TextEncoder();
   const cleanups: (() => void)[] = [];
 

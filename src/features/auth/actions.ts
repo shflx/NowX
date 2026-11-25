@@ -19,7 +19,7 @@ const LOGIN_LIMIT = 5;
 const LOGIN_WINDOW = 15 * 60 * 1000;
 
 // 账号不存在时也执行一次哈希校验，使响应时间与「密码错误」一致，避免枚举账号
-const DUMMY_HASH = hashPassword("nowx-dummy-password");
+const DUMMY_HASH = "$argon2id$v=19$m=19456,t=2,p=1$+XogXNHo5KTy89yagwPObw$2iPzxKRwCNgP2+T5K2Z7Wlma4T0ZAJbXRIj6eHvnNYQ";
 
 export async function login(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const result = await runAction(async () => {
@@ -27,22 +27,22 @@ export async function login(_prev: ActionResult | null, formData: FormData): Pro
     const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
     const limitKey = `login:${input.login}:${ip}`;
 
-    if (isLimited(limitKey, LOGIN_LIMIT)) {
+    if (await isLimited(limitKey, LOGIN_LIMIT)) {
       throw new ActionError("尝试次数过多，请 15 分钟后再试");
     }
 
     const user = await db.user.findUnique({ where: { login: input.login } });
-    const valid = await verifyPassword(user?.passwordHash ?? (await DUMMY_HASH), input.password);
+    const valid = await verifyPassword(user?.passwordHash ?? DUMMY_HASH, input.password);
 
     if (!user || !valid) {
-      hitLimit(limitKey, LOGIN_LIMIT, LOGIN_WINDOW);
+      await hitLimit(limitKey, LOGIN_LIMIT, LOGIN_WINDOW);
       throw new ActionError("账号或密码错误");
     }
     if (user.status === "DISABLED") {
       throw new ActionError("该账号已停用，请联系管理员");
     }
 
-    resetLimit(limitKey);
+    await resetLimit(limitKey);
     await createSession(user.id);
     await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     return user.mustChangePassword;

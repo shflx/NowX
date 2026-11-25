@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   // 每人每 10 分钟最多 30 次提问，避免误操作产生大量调用费用
-  if (hitLimit(`assistant:${user.id}`, 30, 10 * 60 * 1000)) {
+  if (await hitLimit(`assistant:${user.id}`, 30, 10 * 60 * 1000)) {
     return Response.json({ error: "提问太频繁了，请稍后再试" }, { status: 429 });
   }
 

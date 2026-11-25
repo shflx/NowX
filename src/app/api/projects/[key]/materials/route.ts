@@ -1,3 +1,4 @@
+import { AttachmentLimitError } from "@/lib/attachment-limit";
 import { findOrCreateTag, validTagIds } from "@/features/materials/service";
 import { MAX_UPLOAD_BYTES } from "@/lib/constants";
 import { routes } from "@/lib/routes";
@@ -5,7 +6,7 @@ import { recordActivity } from "@/server/activity";
 import { db } from "@/server/db";
 import { publishProjectChange } from "@/server/events";
 import { authorizeProjectRequest } from "@/server/permissions";
-import { saveFile } from "@/server/storage";
+import { deleteFile, saveFile } from "@/server/storage";
 
 /**
  * 上传材料文件（multipart/form-data）
@@ -42,7 +43,13 @@ export async function POST(request: Request, { params }: RouteContext<"/api/proj
   if (tagName) tagIds.push((await findOrCreateTag(project.id, tagName)).id);
 
   const name = String(form.get("name") ?? "").trim() || file.name;
-  const storageKey = await saveFile(new Uint8Array(await file.arrayBuffer()), file.name);
+  let storageKey: string;
+  try {
+    storageKey = await saveFile(file, file.name);
+  } catch (error) {
+    if (error instanceof AttachmentLimitError) return Response.json({ error: error.message }, { status: error.status });
+    throw error;
+  }
 
   const material = await db.material.create({
     data: {
@@ -56,6 +63,10 @@ export async function POST(request: Request, { params }: RouteContext<"/api/proj
       uploaderId: user.id,
       tags: { create: [...new Set(tagIds)].map((tagId) => ({ tagId })) },
     },
+  }).catch(async (error) => {
+    // 如写库响应中断，先确认记录确实不存在，避免删除已提交的材料。
+    if (!(await db.material.findFirst({ where: { storageKey }, select: { id: true } }))) await deleteFile(storageKey);
+    throw error;
   });
 
   await recordActivity({

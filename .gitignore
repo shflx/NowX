@@ -36,3 +36,8 @@ npm-debug.log*
 
 # 静态 UI 原型（仅本地参考）
 /prototypes
+/dist/
+.vinext/
+.cloudflare/
+/workers/.schema.prisma
+/workers/.generated/

@@ -1,5 +1,4 @@
-import { Readable } from "node:stream";
-
+import { AttachmentLimitError } from "@/lib/attachment-limit";
 import { getCurrentUser } from "@/server/auth/dal";
 import { db } from "@/server/db";
 import { canAccessProject } from "@/server/permissions";
@@ -18,7 +17,7 @@ export async function GET(_request: Request, { params }: RouteContext<"/api/mate
 
   try {
     const { size, stream } = await openFile(material.storageKey);
-    return new Response(Readable.toWeb(stream) as ReadableStream, {
+    return new Response(stream, {
       headers: {
         "Content-Type": material.mimeType ?? "application/octet-stream",
         "Content-Length": String(size),
@@ -27,7 +26,8 @@ export async function GET(_request: Request, { params }: RouteContext<"/api/mate
         "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof AttachmentLimitError) return new Response(error.message, { status: error.status });
     return new Response("文件已丢失", { status: 410 });
   }
 }

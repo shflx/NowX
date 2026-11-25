@@ -2,6 +2,7 @@ import "server-only";
 
 import { createReadStream } from "node:fs";
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { Readable } from "node:stream";
 import path from "node:path";
 
 // 本地磁盘存储。对外只暴露 key（相对路径），以后换成对象存储时只需替换本模块。
@@ -17,7 +18,7 @@ function resolveKey(key: string) {
 }
 
 /** 保存文件，返回存储 key。文件名中只保留扩展名，原始文件名记录在数据库中 */
-export async function saveFile(data: Uint8Array, originalName: string) {
+export async function saveFile(data: Blob, originalName: string) {
   const now = new Date();
   const ext = path.extname(originalName).toLowerCase().replace(/[^.a-z0-9]/g, "").slice(0, 12);
   const key = path.posix.join(
@@ -27,14 +28,14 @@ export async function saveFile(data: Uint8Array, originalName: string) {
   );
   const full = resolveKey(key);
   await mkdir(path.dirname(full), { recursive: true });
-  await writeFile(full, data);
+  await writeFile(full, new Uint8Array(await data.arrayBuffer()));
   return key;
 }
 
 export async function openFile(key: string) {
   const full = resolveKey(key);
   const info = await stat(full);
-  return { size: info.size, stream: createReadStream(full) };
+  return { size: info.size, stream: Readable.toWeb(createReadStream(full)) as ReadableStream };
 }
 
 export async function deleteFile(key: string) {

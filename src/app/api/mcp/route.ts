@@ -29,7 +29,7 @@ async function handleMcp(request: Request) {
 
   // 无状态端点仅处理 POST，不提供独立的 SSE 监听或会话结束操作。
   if (request.method !== "POST") return mcpError(405, "仅支持 POST", { Allow: "POST" });
-  if (hitLimit(`mcp:${token.userId}`, REQUEST_LIMIT, WINDOW_SECONDS * 1000)) {
+  if (await hitLimit(`mcp:${token.userId}`, REQUEST_LIMIT, WINDOW_SECONDS * 1000)) {
     return mcpError(429, "请求过于频繁，请稍后再试", { "Retry-After": String(WINDOW_SECONDS) });
   }
 
