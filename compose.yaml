@@ -1,6 +1,4 @@
-# 本地开发：docker compose up -d db
-# 生产部署：docker compose --env-file .env.production --profile prod up -d --build
-#           （首次部署后创建管理员：docker compose --env-file .env.production --profile prod run --rm migrate pnpm db:seed）
+# 本地开发数据库：docker compose up -d db
 services:
   db:
     image: postgres:17-alpine
@@ -9,7 +7,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-nowx}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nowx}
       POSTGRES_DB: ${POSTGRES_DB:-nowx}
-    # 只绑定本机回环地址，生产环境不对外暴露数据库
+    # 只绑定本机回环地址
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
@@ -20,60 +18,5 @@ services:
       timeout: 5s
       retries: 10
 
-  # 一次性任务：执行数据库迁移（也可用于运行种子脚本）
-  migrate:
-    profiles: [prod]
-    build:
-      context: .
-      target: builder
-    command: ["pnpm", "prisma", "migrate", "deploy"]
-    environment: &app-env
-      DATABASE_URL: postgresql://${POSTGRES_USER:-nowx}:${POSTGRES_PASSWORD:-nowx}@db:5432/${POSTGRES_DB:-nowx}?schema=public
-      APP_URL: ${APP_URL:-http://localhost}
-      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Shanghai}
-      ASSISTANT_PROTOCOL: ${ASSISTANT_PROTOCOL:-anthropic}
-      ASSISTANT_API_KEY: ${ASSISTANT_API_KEY:-}
-      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-}
-      ASSISTANT_BASE_URL: ${ASSISTANT_BASE_URL:-}
-      SEED_ADMIN_LOGIN: ${SEED_ADMIN_LOGIN:-admin}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
-      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-管理员}
-    depends_on:
-      db:
-        condition: service_healthy
-
-  app:
-    profiles: [prod]
-    build: .
-    restart: unless-stopped
-    environment:
-      <<: *app-env
-      STORAGE_DIR: /app/storage
-    volumes:
-      - uploads:/app/storage
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-
-  # 反向代理：自动申请 HTTPS 证书
-  caddy:
-    profiles: [prod]
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      DOMAIN: ${DOMAIN:-localhost}
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    depends_on:
-      - app
-
 volumes:
   db-data:
-  uploads:
-  caddy-data:
-  caddy-config:
