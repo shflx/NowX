@@ -15,7 +15,7 @@
 
 | 项 | 决策 |
 |---|---|
-| 部署 | 云服务器，Docker Compose（app + postgres + caddy） |
+| 部署 | Cloudflare Workers（免费计划可用）+ PostgreSQL（经 Hyperdrive 连接） |
 | 登录 | 账号密码，管理员创建账号，不开放注册 |
 | 多项目 | 支持。项目是顶层容器，周期 / 需求 / 任务 / 交流区 / 材料 / 公告都归属于项目 |
 | 语言 | 第一版仅中文 |
@@ -24,13 +24,14 @@
 
 ## 3. 技术栈（为 Agent 维护优化）
 
-- Next.js（App Router）+ TypeScript，单仓库全栈
-- PostgreSQL + Prisma（`schema.prisma` 即完整数据模型）
+- TypeScript 单仓库全栈：React 单页应用（React Router + TanStack Query）+ Cloudflare Worker 接口（Hono + Kysely）
+- 免费计划每个请求的 CPU 上限为 10ms：页面不做服务端渲染，接口只做查询与 JSON 组装，嵌套数据由 PostgreSQL 组装
+- PostgreSQL + Prisma 管理结构与迁移（`schema.prisma` 即完整数据模型），运行时用 Kysely 查询
 - Tailwind CSS + shadcn/ui
 - Zod 做前后端共享校验
-- 自实现数据库会话认证（Argon2id 密码哈希；Cookie 存随机令牌，库中只存摘要）
-- SSE 做实时刷新
-- 文件存储：先本地磁盘，接口抽象，后续可切 OSS
+- 自实现数据库会话认证（Argon2id 密码哈希在 Durable Object 中计算；Cookie 存随机令牌，库中只存摘要）
+- Durable Objects 做实时刷新（WebSocket）、登录与接口限流、附件配额
+- 文件存储：Cloudflare R2
 - 测试：Vitest + Playwright（关键流程）
 - 根目录 `AGENTS.md` 为开发规范，`README.md` 写明目录结构、约定与常用命令
 
@@ -93,9 +94,8 @@ Activity        操作日志
 
 ## 7. 实现状态
 
-以上功能均已实现（含周期回顾、FAQ 精选、项目内搜索、Docker Compose 部署）。已知限制：
-- SSE 事件总线与登录限流在进程内实现，只支持单实例部署
-- 文件存储为本地磁盘（`STORAGE_DIR`），尚未接入对象存储
+以上功能均已实现（含周期回顾、FAQ 精选、项目内搜索）。已知限制：
+- 帖子中 @项目助手 的自动回复在响应之后执行，受 Workers 后台任务时长限制，回答过慢时可能中断
 
 ## 8. 原型
 
