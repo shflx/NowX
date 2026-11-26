@@ -110,22 +110,27 @@ const jwt = await uploadAssets();
 const source = await version(await latest());
 const { bindings, script_runtime: runtime } = source.resources;
 const assetConfig = runtime.assets;
+// 兼容性标志与静态资源路由（单页应用回退、Worker 优先的路径）随代码发布，取自构建产物；
+// 其余运行配置、变量、密钥及资源关联在控制台管理，由 Cloudflare 在平台内继承。
+const compatibilityFlags = config.compatibilityFlags ?? [];
+const notFoundHandling = config.assets?.notFoundHandling ?? assetConfig.not_found_handling;
+const runWorkerFirst = config.assets?.runWorkerFirst ?? assetConfig.raw_run_worker_first;
 const metadata = {
   main_module: config.manifest.mainModule,
   compatibility_date: runtime.compatibility_date,
-  compatibility_flags: runtime.compatibility_flags ?? [],
+  compatibility_flags: compatibilityFlags,
   exports: runtime.exports,
-  // Cloudflare 在平台内继承变量、密钥及资源关联。CI 只传绑定名称。
+  // CI 只传绑定名称。
   bindings: bindings.map(({ name, type }) => ({ name, type: type === "assets" ? "assets" : "inherit" })),
   assets: {
     jwt,
     config: {
       html_handling: assetConfig.html_handling,
-      not_found_handling: assetConfig.not_found_handling,
+      not_found_handling: notFoundHandling,
       base_path: assetConfig.base_path,
       _headers: assetConfig.raw_headers,
       _redirects: assetConfig.raw_redirects,
-      run_worker_first: assetConfig.raw_run_worker_first,
+      run_worker_first: runWorkerFirst,
     },
   },
   annotations: { "workers/message": "prod " + process.env.GITHUB_SHA },
@@ -134,11 +139,20 @@ form.set("metadata", new Blob([JSON.stringify(metadata)], { type: "application/j
 if ((await latest()) !== source.id) throw new Error("上传期间控制台版本已更新，请重试");
 const uploaded = await api(worker + "/versions?bindings_inherit=strict", { body: form });
 const candidate = await version(uploaded.id);
+const {
+  assets: candidateAssets,
+  compatibility_flags: candidateFlags = [],
+  ...candidateRuntime
+} = candidate.resources.script_runtime;
+const { assets: _assets, compatibility_flags: _flags, ...inheritedRuntime } = runtime;
 if (
   !isDeepStrictEqual(sortBindings(candidate.resources.bindings), sortBindings(bindings)) ||
-  !isDeepStrictEqual(candidate.resources.script_runtime, runtime)
+  !isDeepStrictEqual(candidateRuntime, inheritedRuntime) ||
+  !isDeepStrictEqual([...candidateFlags].sort(), [...compatibilityFlags].sort()) ||
+  candidateAssets?.not_found_handling !== notFoundHandling ||
+  !isDeepStrictEqual(candidateAssets?.raw_run_worker_first, runWorkerFirst)
 ) {
-  throw new Error("候选版本的运行配置与控制台不一致，流量尚未切换");
+  throw new Error("候选版本的运行配置与预期不一致，流量尚未切换");
 }
 if ((await latest()) !== candidate.id) throw new Error("已有更新的配置版本，流量尚未切换");
 await api(worker + "/deployments", {
