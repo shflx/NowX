@@ -50,16 +50,20 @@ export function formatLongDate(value: string) {
 }
 
 /** 时间点在指定时区的日期与时分 */
+// 通知与帖子共用应用时区，只保留最近一个格式化器，避免每行都初始化 ICU。
+let partsFormatter: { timeZone: string; format: Intl.DateTimeFormat } | undefined;
+
 function partsIn(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
+  if (partsFormatter?.timeZone !== timeZone) {
+    partsFormatter = {
+      timeZone,
+      format: new Intl.DateTimeFormat("en-CA", {
+        timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+      }),
+    };
+  }
+  const parts = partsFormatter.format.formatToParts(date);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
 }

@@ -45,9 +45,17 @@ export async function listTopics(projectId: string, filter: TopicFilter, userId:
 
 /** 各筛选项的数量（左侧导航） */
 export async function countTopics(projectId: string, userId: string) {
-  const filters: TopicFilter[] = ["all", "mine", "asked", "open", "solved", "faq"];
-  const counts = await Promise.all(filters.map((f) => db.topic.count({ where: { projectId, ...filterWhere(f, userId) } })));
-  return Object.fromEntries(filters.map((f, i) => [f, counts[i]])) as Record<TopicFilter, number>;
+  const [counts] = await db.$queryRaw<Record<TopicFilter, number>[]>`
+    SELECT count(*)::int AS "all",
+           (count(*) FILTER (WHERE "assigneeId" = ${userId} AND status = 'OPEN'))::int AS mine,
+           (count(*) FILTER (WHERE "authorId" = ${userId}))::int AS asked,
+           (count(*) FILTER (WHERE status = 'OPEN'))::int AS open,
+           (count(*) FILTER (WHERE status = 'SOLVED'))::int AS solved,
+           (count(*) FILTER (WHERE "isFaq"))::int AS faq
+    FROM "Topic"
+    WHERE "projectId" = ${projectId}
+  `;
+  return counts;
 }
 
 export async function getTopic(projectId: string, topicId: string) {

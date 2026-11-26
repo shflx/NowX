@@ -60,6 +60,7 @@ export default async function DiscussionsPage({ params, searchParams }: PageProp
           {TOPIC_FILTERS.map((f) => (
             <Link
               key={f}
+              prefetch={false}
               href={f === "all" ? "?" : `?filter=${f}`}
               aria-current={f === filter ? "page" : undefined}
               className={cn(
@@ -94,7 +95,7 @@ export default async function DiscussionsPage({ params, searchParams }: PageProp
                 <UserAvatar user={t.author} size="lg" />
                 <div className="min-w-0 flex-1">
                   <h2 className="flex items-center gap-2 text-[15px] font-semibold">
-                    <Link href={routes.topic(project.key, t.id)} className="after:absolute after:inset-0 hover:text-accent-text">
+                    <Link prefetch={false} href={routes.topic(project.key, t.id)} className="after:absolute after:inset-0 hover:text-accent-text">
                       {t.title}
                     </Link>
                     {t.isFaq && <StatusBadge tone="accent">FAQ</StatusBadge>}

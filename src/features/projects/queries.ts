@@ -30,25 +30,16 @@ export async function listNavProjects(user: CurrentUser): Promise<NavProject[]> 
       name: true,
       color: true,
       archivedAt: true,
-      _count: { select: { members: true } },
+      _count: {
+        select: {
+          members: true,
+          tasks: { where: { assigneeId: user.id, status: { in: OPEN_TASK_STATUSES }, cycle: { status: "ACTIVE" } } },
+          topics: { where: { assigneeId: user.id, status: "OPEN" } },
+        },
+      },
       members: { where: { userId: user.id }, select: { userId: true } },
     },
   });
-
-  const [taskCounts, topicCounts] = await Promise.all([
-    db.task.groupBy({
-      by: ["projectId"],
-      where: { assigneeId: user.id, status: { in: OPEN_TASK_STATUSES }, cycle: { status: "ACTIVE" } },
-      _count: { _all: true },
-    }),
-    db.topic.groupBy({
-      by: ["projectId"],
-      where: { assigneeId: user.id, status: "OPEN" },
-      _count: { _all: true },
-    }),
-  ]);
-  const countOf = (rows: { projectId: string; _count: { _all: number } }[], id: string) =>
-    rows.find((r) => r.projectId === id)?._count._all ?? 0;
 
   return projects.map((p) => ({
     id: p.id,
@@ -58,8 +49,8 @@ export async function listNavProjects(user: CurrentUser): Promise<NavProject[]> 
     memberCount: p._count.members,
     archived: Boolean(p.archivedAt),
     joined: p.members.length > 0,
-    myOpenTasks: countOf(taskCounts, p.id),
-    waitingForMe: countOf(topicCounts, p.id),
+    myOpenTasks: p._count.tasks,
+    waitingForMe: p._count.topics,
   }));
 }
 
