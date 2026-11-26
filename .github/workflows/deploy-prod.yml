@@ -1,0 +1,34 @@
+name: Deploy NowX
+
+on:
+  push:
+    branches: [prod]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nowx-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build:vinext
+        env:
+          NOWX_HYPERDRIVE_ID: e6a9749267764008814def924119d3fd
+      - name: Deploy production Worker
+        run: pnpm exec cf deploy --prebuilt --mode production --no-provision
+        env:
+          CLOUDFLARE_ACCOUNT_ID: 98deece887490e2c794bf4a3e680c3d5
+          CLOUDFLARE_API_TOKEN: ${{ secrets.NOWX_DEPLOY_TOKEN }}
