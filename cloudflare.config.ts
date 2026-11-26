@@ -11,6 +11,8 @@ export default defineConfig({
       runWorkerFirst: ["/*", "!/_next/static/*", "!/*/_next/static/*"],
     },
     observability: { enabled: true, traces: { enabled: true, headSamplingRate: 0.01 } },
+    // 部署代码时由 Workers 继承控制台管理的运行时变量和密钥。
+    unsafe: { metadata: { keep_bindings: ["plain_text", "json", "secret_text", "secret_key"] } },
     exports: {
       AttachmentQuota: exports.durableObject({ storage: "sqlite" }),
       LiveEvents: exports.durableObject({ storage: "sqlite" }),
@@ -23,7 +25,6 @@ export default defineConfig({
       RATE_LIMIT: bindings.durableObject({ worker: "nowx", exportName: "RateLimit" }),
       PASSWORD_HASH: bindings.durableObject({ worker: "nowx", exportName: "PasswordHash" }),
       ASSETS: bindings.assets(),
-      APP_URL: bindings.text("https://nowx.shuffleyxf.workers.dev"),
       ATTACHMENTS: bindings.r2({ name: "nowx-attachments" }),
       ATTACHMENT_QUOTA: bindings.durableObject({ worker: "nowx", exportName: "AttachmentQuota" }),
     },
