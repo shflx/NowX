@@ -1,15 +1,15 @@
-import { sql } from "kysely";
-
-import { listProjectMembers } from "@/features/projects/queries";
+import { projectMembersQuery } from "@/features/projects/queries";
 import { toDateString } from "@/lib/dates";
-import { db } from "@/server/db";
-import { jsonArrayFrom, jsonObjectFrom } from "@/server/db/json";
+import { countInt, db } from "@/server/db";
+import { jsonArrayFrom, jsonBuildObject, jsonDate, jsonObjectFrom } from "@/server/db/json";
 
 import type { TaskFormOptions } from "./components/types";
 import type { TaskListFilter } from "./schemas";
 
+// 以下函数返回查询（不执行），由页面接口合并为一条 SQL 后执行
+
 /** 任务列表：按周期 / 负责人 / 关键字筛选，包含子任务 */
-export async function listTasks(projectId: string, filter: TaskListFilter, currentUserId: string) {
+export function taskListQuery(projectId: string, filter: TaskListFilter, currentUserId: string) {
   let query = db
     .selectFrom("Task as t")
     .select((eb) => [
@@ -18,7 +18,7 @@ export async function listTasks(projectId: string, filter: TaskListFilter, curre
       "t.title",
       "t.status",
       "t.priority",
-      "t.dueDate",
+      jsonDate<Date | null>("t.dueDate").as("dueDate"),
       "t.parentId",
       "t.carriedFromCycleId",
       "t.blockedAt",
@@ -29,11 +29,9 @@ export async function listTasks(projectId: string, filter: TaskListFilter, curre
         eb.selectFrom("Requirement as r").select(["r.id", "r.number", "r.title"]).whereRef("r.id", "=", "t.requirementId"),
       ).as("requirement"),
       jsonArrayFrom(eb.selectFrom("Task as s").select("s.status").whereRef("s.parentId", "=", "t.id")).as("subtasks"),
-      eb
-        .selectFrom("TaskComment as c")
-        .select(sql<number>`count(*)::int`.as("n"))
-        .whereRef("c.taskId", "=", "t.id")
-        .as("comments"),
+      jsonBuildObject({
+        comments: eb.selectFrom("TaskComment as c").select(countInt.as("n")).whereRef("c.taskId", "=", "t.id").$castTo<number>(),
+      }).as("_count"),
     ])
     .where("t.projectId", "=", projectId);
 
@@ -51,21 +49,29 @@ export async function listTasks(projectId: string, filter: TaskListFilter, curre
     );
   }
 
-  const rows = await query.orderBy("t.number", "asc").execute();
-  return rows.map(({ comments, ...task }) => ({ ...task, _count: { comments: comments ?? 0 } }));
+  return query.orderBy("t.number", "asc");
 }
 
-export type TaskListItem = Awaited<ReturnType<typeof listTasks>>[number];
+export type TaskListItem = Awaited<ReturnType<ReturnType<typeof taskListQuery>["execute"]>>[number];
 
 /** 任务详情（侧边抽屉） */
-export async function getTaskDetail(projectId: string, number: number) {
-  const task = await db
+export function taskDetailQuery(projectId: string, number: number) {
+  return db
     .selectFrom("Task as t")
-    .selectAll("t")
     .select((eb) => [
-      jsonObjectFrom(eb.selectFrom("User as u").select(["u.id", "u.name", "u.color"]).whereRef("u.id", "=", "t.assigneeId")).as(
-        "assignee",
-      ),
+      "t.id",
+      "t.number",
+      "t.title",
+      "t.description",
+      "t.status",
+      "t.priority",
+      jsonDate<Date | null>("t.dueDate").as("dueDate"),
+      "t.assigneeId",
+      "t.cycleId",
+      "t.requirementId",
+      "t.blockedAt",
+      "t.creatorId",
+      "t.createdAt",
       jsonObjectFrom(eb.selectFrom("User as u").select(["u.id", "u.name"]).whereRef("u.id", "=", "t.creatorId"))
         .$notNull()
         .as("creator"),
@@ -129,46 +135,54 @@ export async function getTaskDetail(projectId: string, number: number) {
             "o.id",
             "o.title",
             "o.status",
-            o
-              .selectFrom("Reply as r")
-              .select(sql<number>`count(*)::int`.as("n"))
-              .whereRef("r.topicId", "=", "o.id")
-              .as("replies"),
+            o.selectFrom("Reply as r").select(countInt.as("n")).whereRef("r.topicId", "=", "o.id").as("replies"),
           ])
           .whereRef("o.taskId", "=", "t.id")
           .orderBy("o.lastActivityAt", "desc"),
       ).as("topics"),
     ])
     .where("t.projectId", "=", projectId)
-    .where("t.number", "=", number)
-    .executeTakeFirst();
-  return task ?? null;
+    .where("t.number", "=", number);
 }
 
-export type TaskDetail = NonNullable<Awaited<ReturnType<typeof getTaskDetail>>>;
+export type TaskDetail = NonNullable<Awaited<ReturnType<ReturnType<typeof taskDetailQuery>["executeTakeFirst"]>>>;
 
 /** 新建 / 编辑任务时可选的成员、周期与需求 */
-export async function loadTaskFormOptions(project: { id: string; key: string }): Promise<TaskFormOptions> {
-  const [members, cycles, requirements] = await Promise.all([
-    listProjectMembers(project.id),
-    db
-      .selectFrom("Cycle")
-      .select(["id", "name", "status", "startDate", "endDate"])
-      .where("projectId", "=", project.id)
-      .orderBy("startDate", "asc")
-      .execute(),
-    db
-      .selectFrom("Requirement")
-      .select(["id", "number", "title", "cycleId"])
-      .where("projectId", "=", project.id)
-      .orderBy("number", "desc")
-      .execute(),
-  ]);
+export function taskFormOptionsQueries(projectId: string) {
+  return [
+    jsonArrayFrom(projectMembersQuery(projectId)).as("members"),
+    jsonArrayFrom(
+      db
+        .selectFrom("Cycle as c")
+        .select(["c.id", "c.name", "c.status", jsonDate("c.startDate").as("startDate"), jsonDate("c.endDate").as("endDate")])
+        .where("c.projectId", "=", projectId)
+        .orderBy("c.startDate", "asc"),
+    ).as("cycles"),
+    jsonArrayFrom(
+      db
+        .selectFrom("Requirement")
+        .select(["id", "number", "title", "cycleId"])
+        .where("projectId", "=", projectId)
+        .orderBy("number", "desc"),
+    ).as("requirements"),
+  ] as const;
+}
+
+type FormOptionRows = Awaited<ReturnType<ReturnType<typeof formOptionsSelect>["executeTakeFirstOrThrow"]>>;
+const formOptionsSelect = (projectId: string) => db.selectNoFrom(() => taskFormOptionsQueries(projectId));
+
+/** 把查询结果整理为任务表单的选项（只保留正常状态的成员，日期转为 yyyy-MM-dd） */
+export function toTaskFormOptions(project: { id: string; key: string }, rows: FormOptionRows): TaskFormOptions {
   return {
     projectId: project.id,
     projectKey: project.key,
-    members: members.filter((m) => m.status === "ACTIVE").map(({ id, name, color }) => ({ id, name, color })),
-    cycles: cycles.map((c) => ({ ...c, startDate: toDateString(c.startDate), endDate: toDateString(c.endDate) })),
-    requirements,
+    members: rows.members.filter((m) => m.status === "ACTIVE").map(({ id, name, color }) => ({ id, name, color })),
+    cycles: rows.cycles.map((c) => ({ ...c, startDate: toDateString(c.startDate), endDate: toDateString(c.endDate) })),
+    requirements: rows.requirements,
   };
+}
+
+/** 单独读取任务表单选项（一条查询） */
+export async function loadTaskFormOptions(project: { id: string; key: string }) {
+  return toTaskFormOptions(project, await formOptionsSelect(project.id).executeTakeFirstOrThrow());
 }

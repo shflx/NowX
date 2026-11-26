@@ -18,12 +18,24 @@ export async function canAccessProject(user: CurrentUser, projectId: string) {
   return Boolean(member);
 }
 
+/** 项目及当前用户能否访问（一条查询），不存在或无权访问时返回 undefined */
+function findAccessibleProject(user: CurrentUser, where: { key: string } | { id: string }) {
+  let query = db.selectFrom("Project as p").selectAll("p");
+  query = "key" in where ? query.where("p.key", "=", where.key.toUpperCase()) : query.where("p.id", "=", where.id);
+  if (!isAdmin(user)) {
+    query = query.where((eb) =>
+      eb.exists(eb.selectFrom("ProjectMember as m").whereRef("m.projectId", "=", "p.id").where("m.userId", "=", user.id)),
+    );
+  }
+  return query.executeTakeFirst();
+}
+
 /** 页面数据接口使用：按 URL 中的项目编号加载项目，无权访问时返回 404 */
 export function requireProjectByKey(key: string) {
   return memo(`project:${key.toUpperCase()}`, async () => {
     const user = await requireUser();
-    const project = await db.selectFrom("Project").selectAll().where("key", "=", key.toUpperCase()).executeTakeFirst();
-    if (!project || !(await canAccessProject(user, project.id))) throw new NotFoundError();
+    const project = await findAccessibleProject(user, { key });
+    if (!project) throw new NotFoundError();
     return { user, project };
   });
 }
@@ -31,10 +43,8 @@ export function requireProjectByKey(key: string) {
 /** 写操作使用：按项目 ID 校验访问权限 */
 export async function requireProjectAccess(projectId: string) {
   const user = await requireUser();
-  const project = await db.selectFrom("Project").selectAll().where("id", "=", projectId).executeTakeFirst();
-  if (!project || !(await canAccessProject(user, project.id))) {
-    throw new ActionError("项目不存在或无权访问");
-  }
+  const project = await findAccessibleProject(user, { id: projectId });
+  if (!project) throw new ActionError("项目不存在或无权访问");
   return { user, project };
 }
 

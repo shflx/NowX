@@ -121,12 +121,12 @@ export async function deleteAccount(userId: string) {
 
   const user = await db
     .selectFrom("User")
-    .select(["name", ...usageCounts()])
+    .select(["name", usageCounts().as("counts")])
     .where("id", "=", userId)
     .executeTakeFirst();
   if (!user) throw new ActionError("账号不存在");
 
-  const { name, ...counts } = user;
+  const { name, counts } = user;
   if (Object.values(counts).some((n) => n > 0)) {
     throw new ActionError(`${name} 已有任务、帖子等协作记录，不能删除；如不再使用，请停用该账号`);
   }

@@ -1,27 +1,27 @@
 import { sql } from "kysely";
 
 import { db } from "@/server/db";
-import { jsonArrayFrom, jsonObjectFrom } from "@/server/db/json";
+import { jsonArrayFrom, jsonBuildObject, jsonObjectFrom } from "@/server/db/json";
 
 /** 账号在各类协作记录中的数量：有任何记录的账号不能删除，只能停用 */
 export function usageCounts() {
   const count = (table: string, column: string) =>
     sql<number>`(select count(*)::int from ${sql.table(table)} x where x.${sql.ref(column)} = "User".id)`;
-  return [
-    count("Task", "creatorId").as("createdTasks"),
-    count("Task", "assigneeId").as("assignedTasks"),
-    count("TaskComment", "authorId").as("comments"),
-    count("Topic", "authorId").as("topics"),
-    count("Reply", "authorId").as("replies"),
-    count("Material", "uploaderId").as("materials"),
-    count("Announcement", "authorId").as("announcements"),
-    count("Activity", "actorId").as("activities"),
-  ];
+  return jsonBuildObject({
+    createdTasks: count("Task", "creatorId"),
+    assignedTasks: count("Task", "assigneeId"),
+    comments: count("TaskComment", "authorId"),
+    topics: count("Topic", "authorId"),
+    replies: count("Reply", "authorId"),
+    materials: count("Material", "uploaderId"),
+    announcements: count("Announcement", "authorId"),
+    activities: count("Activity", "actorId"),
+  });
 }
 
-/** 账号管理列表（不含密码哈希） */
-export async function listAccounts() {
-  const rows = await db
+/** 账号管理列表（不含密码哈希）；返回查询，由页面接口合并执行 */
+export function accountsQuery() {
+  return db
     .selectFrom("User")
     .select((eb) => [
       "User.id",
@@ -33,7 +33,7 @@ export async function listAccounts() {
       "User.color",
       "User.mustChangePassword",
       "User.lastLoginAt",
-      ...usageCounts(),
+      usageCounts().as("_count"),
       jsonArrayFrom(
         eb
           .selectFrom("ProjectMember as m")
@@ -53,15 +53,7 @@ export async function listAccounts() {
           .orderBy(sql`m.ctid`),
       ).as("memberships"),
     ])
-    .orderBy("User.createdAt", "asc")
-    .execute();
-
-  return rows.map(
-    ({ createdTasks, assignedTasks, comments, topics, replies, materials, announcements, activities, ...user }) => ({
-      ...user,
-      _count: { createdTasks, assignedTasks, comments, topics, replies, materials, announcements, activities },
-    }),
-  );
+    .orderBy("User.createdAt", "asc");
 }
 
-export type AccountRow = Awaited<ReturnType<typeof listAccounts>>[number];
+export type AccountRow = Awaited<ReturnType<ReturnType<typeof accountsQuery>["execute"]>>[number];

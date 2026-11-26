@@ -2,7 +2,10 @@ import { sql } from "kysely";
 
 import { OPEN_TASK_STATUSES } from "@/lib/constants";
 import { type CurrentUser, isAdmin } from "@/server/auth/dal";
-import { db } from "@/server/db";
+import { countInt, db } from "@/server/db";
+import { jsonBuildObject } from "@/server/db/json";
+
+// 以下函数返回查询（不执行），由页面接口合并为一条 SQL 后执行
 
 export type NavProject = {
   id: string;
@@ -20,7 +23,7 @@ export type NavProject = {
 };
 
 /** 侧边栏与项目切换器需要的项目列表及角标数字 */
-export async function listNavProjects(user: CurrentUser): Promise<NavProject[]> {
+export function navProjectsQuery(user: CurrentUser) {
   let query = db
     .selectFrom("Project as p")
     .select((eb) => [
@@ -29,18 +32,14 @@ export async function listNavProjects(user: CurrentUser): Promise<NavProject[]> 
       "p.name",
       "p.color",
       eb("p.archivedAt", "is not", null).as("archived"),
-      eb
-        .selectFrom("ProjectMember as m")
-        .select(sql<number>`count(*)::int`.as("n"))
-        .whereRef("m.projectId", "=", "p.id")
-        .as("memberCount"),
+      eb.selectFrom("ProjectMember as m").select(countInt.as("n")).whereRef("m.projectId", "=", "p.id").as("memberCount"),
       eb
         .exists(eb.selectFrom("ProjectMember as m").whereRef("m.projectId", "=", "p.id").where("m.userId", "=", user.id))
         .as("joined"),
       eb
         .selectFrom("Task as t")
         .innerJoin("Cycle as c", "c.id", "t.cycleId")
-        .select(sql<number>`count(*)::int`.as("n"))
+        .select(countInt.as("n"))
         .whereRef("t.projectId", "=", "p.id")
         .where("t.assigneeId", "=", user.id)
         .where("t.status", "in", OPEN_TASK_STATUSES)
@@ -48,7 +47,7 @@ export async function listNavProjects(user: CurrentUser): Promise<NavProject[]> 
         .as("myOpenTasks"),
       eb
         .selectFrom("Topic as o")
-        .select(sql<number>`count(*)::int`.as("n"))
+        .select(countInt.as("n"))
         .whereRef("o.projectId", "=", "p.id")
         .where("o.assigneeId", "=", user.id)
         .where("o.status", "=", "OPEN")
@@ -63,20 +62,11 @@ export async function listNavProjects(user: CurrentUser): Promise<NavProject[]> 
         eb.exists(eb.selectFrom("ProjectMember as m").whereRef("m.projectId", "=", "p.id").where("m.userId", "=", user.id)),
       );
   }
-
-  const rows = await query.execute();
-  return rows.map((p) => ({
-    ...p,
-    memberCount: p.memberCount ?? 0,
-    myOpenTasks: p.myOpenTasks ?? 0,
-    waitingForMe: p.waitingForMe ?? 0,
-    archived: Boolean(p.archived),
-    joined: Boolean(p.joined),
-  }));
+  return query;
 }
 
 /** 项目成员（用于各种成员选择器） */
-export function listProjectMembers(projectId: string) {
+export function projectMembersQuery(projectId: string) {
   return (
     db
       .selectFrom("ProjectMember as m")
@@ -86,46 +76,43 @@ export function listProjectMembers(projectId: string) {
       .orderBy("m.joinedAt", "asc")
       // 同一次添加的成员加入时间相同，按写入顺序排列
       .orderBy(sql`m.ctid`)
-      .execute()
   );
 }
 
-export type ProjectMemberOption = Awaited<ReturnType<typeof listProjectMembers>>[number];
-
 /** 全部正常状态的账号（新建项目、添加成员时选择） */
-export function listActiveUsers() {
+export function activeUsersQuery() {
   return db
     .selectFrom("User")
     .select(["id", "name", "title", "color"])
     .where("status", "=", "ACTIVE")
-    .orderBy("createdAt", "asc")
-    .execute();
+    .orderBy("createdAt", "asc");
 }
 
 /** 未归档的项目（账号管理、成员管理中选择项目） */
-export function listOpenProjects() {
+export function openProjectsQuery() {
   return db
     .selectFrom("Project")
     .select(["id", "key", "name", "color"])
     .where("archivedAt", "is", null)
-    .orderBy("createdAt", "asc")
-    .execute();
+    .orderBy("createdAt", "asc");
 }
 
 /** 项目管理列表（管理员）：全部项目及规模统计 */
-export async function listProjectsForAdmin() {
+export function adminProjectsQuery() {
   const count = (table: "ProjectMember" | "Task" | "Requirement" | "Topic" | "Material") =>
     sql<number>`(select count(*)::int from ${sql.table(table)} x where x."projectId" = p.id)`;
 
-  const rows = await db
+  return db
     .selectFrom("Project as p")
     .selectAll("p")
     .select((eb) => [
-      count("ProjectMember").as("members"),
-      count("Task").as("tasks"),
-      count("Requirement").as("requirements"),
-      count("Topic").as("topics"),
-      count("Material").as("materials"),
+      jsonBuildObject({
+        members: count("ProjectMember"),
+        tasks: count("Task"),
+        requirements: count("Requirement"),
+        topics: count("Topic"),
+        materials: count("Material"),
+      }).as("_count"),
       eb
         .selectFrom("Cycle as c")
         .select("c.name")
@@ -135,13 +122,5 @@ export async function listProjectsForAdmin() {
         .as("activeCycle"),
     ])
     .orderBy(sql`p."archivedAt" asc nulls first`)
-    .orderBy("p.createdAt", "asc")
-    .execute();
-
-  return rows.map(({ members, tasks, requirements, topics, materials, ...p }) => ({
-    ...p,
-    _count: { members, tasks, requirements, topics, materials },
-  }));
+    .orderBy("p.createdAt", "asc");
 }
-
-export type AdminProjectRow = Awaited<ReturnType<typeof listProjectsForAdmin>>[number];

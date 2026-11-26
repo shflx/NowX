@@ -1,9 +1,12 @@
-import { sql } from "kysely";
-
-import { db } from "@/server/db";
+import { countInt, db } from "@/server/db";
 import { jsonArrayFrom, jsonBuildObject, jsonObjectFrom } from "@/server/db/json";
 
-export function listMaterials(projectId: string, tagId?: string) {
+// 以下函数返回查询（不执行），由页面接口合并为一条 SQL 后执行
+
+/**
+ * 材料列表。指定标签时只返回挂了该标签的材料；标签不属于本项目时视为未指定（与页面上的「全部」一致）。
+ */
+export function materialsQuery(projectId: string, tagId: string | null) {
   let query = db
     .selectFrom("Material as m")
     .selectAll("m")
@@ -32,25 +35,29 @@ export function listMaterials(projectId: string, tagId?: string) {
     .where("m.projectId", "=", projectId);
   if (tagId) {
     query = query.where((eb) =>
-      eb.exists(eb.selectFrom("MaterialTag as mt").whereRef("mt.materialId", "=", "m.id").where("mt.tagId", "=", tagId)),
+      eb.or([
+        eb.not(eb.exists(eb.selectFrom("Tag as t").where("t.id", "=", tagId).where("t.projectId", "=", projectId))),
+        eb.exists(eb.selectFrom("MaterialTag as mt").whereRef("mt.materialId", "=", "m.id").where("mt.tagId", "=", tagId)),
+      ]),
     );
   }
-  return query.orderBy("m.createdAt", "desc").execute();
+  return query.orderBy("m.createdAt", "desc");
 }
 
-export async function listTags(projectId: string) {
-  const rows = await db
+/** 项目标签及各自的材料数 */
+export function tagsQuery(projectId: string) {
+  return db
     .selectFrom("Tag as t")
     .selectAll("t")
     .select((eb) => [
-      eb
-        .selectFrom("MaterialTag as mt")
-        .select(sql<number>`count(*)::int`.as("n"))
-        .whereRef("mt.tagId", "=", "t.id")
-        .as("materials"),
+      jsonBuildObject({
+        materials: eb
+          .selectFrom("MaterialTag as mt")
+          .select(countInt.as("n"))
+          .whereRef("mt.tagId", "=", "t.id")
+          .$castTo<number>(),
+      }).as("_count"),
     ])
     .where("t.projectId", "=", projectId)
-    .orderBy("t.name", "asc")
-    .execute();
-  return rows.map(({ materials, ...tag }) => ({ ...tag, _count: { materials: materials ?? 0 } }));
+    .orderBy("t.name", "asc");
 }

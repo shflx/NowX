@@ -1,23 +1,18 @@
-import { sql } from "kysely";
+import { countInt, db } from "@/server/db";
 
-import { db } from "@/server/db";
+// 以下函数返回查询（不执行），由页面接口合并为一条 SQL 后执行
 
-/** 最近的通知与未读数（顶栏铃铛使用） */
-export async function getNotificationSummary(userId: string) {
-  const [items, { unread }] = await Promise.all([
-    db
-      .selectFrom("Notification")
-      .select(["id", "text", "href", "readAt", "createdAt"])
-      .where("userId", "=", userId)
-      .orderBy("createdAt", "desc")
-      .limit(20)
-      .execute(),
-    db
-      .selectFrom("Notification")
-      .select(sql<number>`count(*)::int`.as("unread"))
-      .where("userId", "=", userId)
-      .where("readAt", "is", null)
-      .executeTakeFirstOrThrow(),
-  ]);
-  return { items, unread };
+/** 最近的通知（顶栏铃铛使用） */
+export function recentNotificationsQuery(userId: string) {
+  return db
+    .selectFrom("Notification")
+    .select(["id", "text", "href", "readAt", "createdAt"])
+    .where("userId", "=", userId)
+    .orderBy("createdAt", "desc")
+    .limit(20);
+}
+
+/** 未读通知数 */
+export function unreadCountQuery(userId: string) {
+  return db.selectFrom("Notification").select(countInt.as("n")).where("userId", "=", userId).where("readAt", "is", null);
 }

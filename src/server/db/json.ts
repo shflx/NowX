@@ -3,7 +3,7 @@
 // 已经把时间还原为 Date（见 ./index.ts 中的 json 类型解析），前端收到响应后同样会还原。
 // 注意：JSON 中的 date 列（如周期起止日期）需先转为 timestamp，才能还原为 UTC 零点的 Date。
 
-import type { Expression, RawBuilder, Simplify } from "kysely";
+import { type Expression, type RawBuilder, type Simplify, sql } from "kysely";
 import * as postgres from "kysely/helpers/postgres";
 
 export function jsonArrayFrom<O>(expr: Expression<O>) {
@@ -18,4 +18,9 @@ export function jsonBuildObject<O extends Record<string, Expression<unknown>>>(o
   return postgres.jsonBuildObject(obj) as unknown as RawBuilder<
     Simplify<{ [K in keyof O]: O[K] extends Expression<infer V> ? V : never }>
   >;
+}
+
+/** JSON 中的 date 列（Cycle 起止日期、Task 截止日期）转为 timestamp，解析后还原为 UTC 零点的 Date */
+export function jsonDate<T extends Date | null = Date>(column: string) {
+  return sql<T>`${sql.ref(column)}::timestamp`;
 }

@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-import { Kysely, PostgresDialect, type Transaction } from "kysely";
+import { Kysely, PostgresDialect, sql, type Transaction } from "kysely";
 import pg from "pg";
 
 import { reviveDates } from "@/lib/json-dates";
@@ -17,6 +17,9 @@ pg.types.setTypeParser(pg.types.builtins.JSON, (value) => JSON.parse(value, revi
 pg.types.setTypeParser(pg.types.builtins.JSONB, (value) => JSON.parse(value, reviveDates));
 
 export type Database = Kysely<DB>;
+
+/** count(*) 转为 int（PostgreSQL 的 count 返回 bigint，驱动会解析为字符串） */
+export const countInt = sql<number>`count(*)::int`;
 export type Tx = Transaction<DB>;
 
 type RequestDatabase = { connectionString: string; db?: Database };
@@ -24,14 +27,14 @@ type RequestDatabase = { connectionString: string; db?: Database };
 const storage = new AsyncLocalStorage<RequestDatabase>();
 
 /**
- * 每个请求使用独立的连接池：Hyperdrive 负责与数据库之间的连接复用，
- * Worker 内的连接只在本次请求中有效。允许少量并发连接，让同一页面的多次查询并行执行。
+ * 每个请求只建立一个连接：Hyperdrive 负责与数据库之间的连接复用，Worker 内的连接只在本次请求中有效。
+ * 建立连接和每条查询都会消耗 Worker 的 CPU 时间，同一页面的多次查询应合并为一条 SQL（见 ./json.ts）。
  */
 function current() {
   const state = storage.getStore();
   if (!state) throw new Error("数据库只能在请求内访问");
   state.db ??= new Kysely<DB>({
-    dialect: new PostgresDialect({ pool: new pg.Pool({ connectionString: state.connectionString, max: 4 }) }),
+    dialect: new PostgresDialect({ pool: new pg.Pool({ connectionString: state.connectionString, max: 1 }) }),
   });
   return state.db;
 }

@@ -1,3 +1,5 @@
+import { sql } from "kysely";
+
 import { OPEN_TASK_STATUSES } from "@/lib/constants";
 import { toDateString } from "@/lib/dates";
 import { db } from "@/server/db";
@@ -38,59 +40,67 @@ export async function listCycles(projectId: string) {
 
 export type CycleListItem = Awaited<ReturnType<typeof listCycles>>[number];
 
-/** 周期详情的原始数据：顶层任务、顺延出去的任务、本期需求，统计在页面中按当天日期计算 */
-export async function getCycleDetailData(cycle: { id: string; status: string }) {
-  const [tasks, carried, requirements, unfinished] = await Promise.all([
-    db
-      .selectFrom("Task as t")
-      .select((eb) => [
-        "t.status",
-        "t.createdAt",
-        "t.completedAt",
-        jsonObjectFrom(eb.selectFrom("User as u").select(["u.id", "u.name", "u.color"]).whereRef("u.id", "=", "t.assigneeId")).as(
-          "assignee",
-        ),
-      ])
-      .where("t.cycleId", "=", cycle.id)
-      .where("t.parentId", "is", null)
-      .execute(),
-    db
-      .selectFrom("Task as t")
-      .select((eb) => [
-        "t.id",
-        "t.number",
-        "t.title",
-        "t.status",
-        jsonObjectFrom(eb.selectFrom("Cycle as c").select("c.name").whereRef("c.id", "=", "t.cycleId")).as("cycle"),
-      ])
-      .where("t.carriedFromCycleId", "=", cycle.id)
-      .where("t.parentId", "is", null)
-      .orderBy("t.number", "asc")
-      .execute(),
-    // 本期需求：计划在本周期交付的需求，加上从本周期顺延出去的需求（用于周期回顾）
-    db
-      .selectFrom("Requirement as r")
-      .select((eb) => [
-        "r.id",
-        "r.number",
-        "r.title",
-        "r.status",
-        "r.cycleId",
-        "r.carriedFromCycleId",
-        jsonObjectFrom(eb.selectFrom("Cycle as c").select("c.name").whereRef("c.id", "=", "r.carriedFromCycleId")).as(
-          "carriedFrom",
-        ),
-        jsonObjectFrom(eb.selectFrom("Cycle as c").select("c.name").whereRef("c.id", "=", "r.cycleId")).as("cycle"),
-        jsonArrayFrom(
-          eb.selectFrom("Task as t").select("t.status").whereRef("t.requirementId", "=", "r.id").where("t.parentId", "is", null),
-        ).as("tasks"),
-      ])
-      .where((eb) => eb.or([eb("r.cycleId", "=", cycle.id), eb("r.carriedFromCycleId", "=", cycle.id)]))
-      .orderBy("r.number", "asc")
-      .execute(),
-    // 结束周期时需要处理的未完成顶层任务
-    cycle.status === "ACTIVE"
-      ? db
+/** 周期详情的原始数据（一条查询）：顶层任务、顺延出去的任务、本期需求，统计在页面中按当天日期计算 */
+export function getCycleDetailData(cycle: { id: string; status: string }) {
+  return db
+    .selectNoFrom(() => [
+      jsonArrayFrom(
+        db
+          .selectFrom("Task as t")
+          .select((eb) => [
+            "t.status",
+            "t.createdAt",
+            "t.completedAt",
+            jsonObjectFrom(
+              eb.selectFrom("User as u").select(["u.id", "u.name", "u.color"]).whereRef("u.id", "=", "t.assigneeId"),
+            ).as("assignee"),
+          ])
+          .where("t.cycleId", "=", cycle.id)
+          .where("t.parentId", "is", null),
+      ).as("tasks"),
+      jsonArrayFrom(
+        db
+          .selectFrom("Task as t")
+          .select((eb) => [
+            "t.id",
+            "t.number",
+            "t.title",
+            "t.status",
+            jsonObjectFrom(eb.selectFrom("Cycle as c").select("c.name").whereRef("c.id", "=", "t.cycleId")).as("cycle"),
+          ])
+          .where("t.carriedFromCycleId", "=", cycle.id)
+          .where("t.parentId", "is", null)
+          .orderBy("t.number", "asc"),
+      ).as("carried"),
+      // 本期需求：计划在本周期交付的需求，加上从本周期顺延出去的需求（用于周期回顾）
+      jsonArrayFrom(
+        db
+          .selectFrom("Requirement as r")
+          .select((eb) => [
+            "r.id",
+            "r.number",
+            "r.title",
+            "r.status",
+            "r.cycleId",
+            "r.carriedFromCycleId",
+            jsonObjectFrom(eb.selectFrom("Cycle as c").select("c.name").whereRef("c.id", "=", "r.carriedFromCycleId")).as(
+              "carriedFrom",
+            ),
+            jsonObjectFrom(eb.selectFrom("Cycle as c").select("c.name").whereRef("c.id", "=", "r.cycleId")).as("cycle"),
+            jsonArrayFrom(
+              eb
+                .selectFrom("Task as t")
+                .select("t.status")
+                .whereRef("t.requirementId", "=", "r.id")
+                .where("t.parentId", "is", null),
+            ).as("tasks"),
+          ])
+          .where((eb) => eb.or([eb("r.cycleId", "=", cycle.id), eb("r.carriedFromCycleId", "=", cycle.id)]))
+          .orderBy("r.number", "asc"),
+      ).as("requirements"),
+      // 结束周期时需要处理的未完成顶层任务（只有进行中的周期需要）
+      jsonArrayFrom(
+        db
           .selectFrom("Task as t")
           .select((eb) => [
             "t.id",
@@ -104,11 +114,11 @@ export async function getCycleDetailData(cycle: { id: string; status: string }) 
           .where("t.cycleId", "=", cycle.id)
           .where("t.parentId", "is", null)
           .where("t.status", "in", OPEN_TASK_STATUSES)
-          .orderBy("t.number", "asc")
-          .execute()
-      : [],
-  ]);
-  return { tasks, carried, requirements, unfinished };
+          .where(sql<boolean>`${cycle.status === "ACTIVE"}`)
+          .orderBy("t.number", "asc"),
+      ).as("unfinished"),
+    ])
+    .executeTakeFirstOrThrow();
 }
 
 export type CycleDetailData = Awaited<ReturnType<typeof getCycleDetailData>>;

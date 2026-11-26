@@ -1,11 +1,13 @@
 import { sql } from "kysely";
 
-import { db } from "@/server/db";
-import { jsonArrayFrom, jsonObjectFrom } from "@/server/db/json";
+import { countInt, db } from "@/server/db";
+import { jsonArrayFrom, jsonBuildObject, jsonObjectFrom } from "@/server/db/json";
 
 import type { TopicFilter } from "./schemas";
 
-export function listTopics(projectId: string, filter: TopicFilter, userId: string) {
+// 以下函数返回查询（不执行），由页面接口合并为一条 SQL 后执行
+
+export function topicListQuery(projectId: string, filter: TopicFilter, userId: string) {
   let query = db
     .selectFrom("Topic as o")
     .select((eb) => [
@@ -24,11 +26,9 @@ export function listTopics(projectId: string, filter: TopicFilter, userId: strin
       jsonObjectFrom(eb.selectFrom("Requirement as r").select("r.number").whereRef("r.id", "=", "o.requirementId")).as(
         "requirement",
       ),
-      eb
-        .selectFrom("Reply as p")
-        .select(sql<number>`count(*)::int`.as("n"))
-        .whereRef("p.topicId", "=", "o.id")
-        .as("replies"),
+      jsonBuildObject({
+        replies: eb.selectFrom("Reply as p").select(countInt.as("n")).whereRef("p.topicId", "=", "o.id").$castTo<number>(),
+      }).as("_count"),
     ])
     .where("o.projectId", "=", projectId);
 
@@ -50,29 +50,26 @@ export function listTopics(projectId: string, filter: TopicFilter, userId: strin
       break;
   }
 
-  return query
-    .orderBy("o.lastActivityAt", "desc")
-    .execute()
-    .then((rows) => rows.map(({ replies, ...t }) => ({ ...t, _count: { replies: replies ?? 0 } })));
+  return query.orderBy("o.lastActivityAt", "desc");
 }
 
 /** 各筛选项的数量（左侧导航） */
-export async function countTopics(projectId: string, userId: string) {
-  const { rows } = await sql<Record<TopicFilter, number>>`
-    SELECT count(*)::int AS "all",
-           (count(*) FILTER (WHERE "assigneeId" = ${userId} AND status = 'OPEN'))::int AS mine,
-           (count(*) FILTER (WHERE "authorId" = ${userId}))::int AS asked,
-           (count(*) FILTER (WHERE status = 'OPEN'))::int AS open,
-           (count(*) FILTER (WHERE status = 'SOLVED'))::int AS solved,
-           (count(*) FILTER (WHERE "isFaq"))::int AS faq
-    FROM "Topic"
-    WHERE "projectId" = ${projectId}
-  `.execute(db);
-  return rows[0];
+export function topicCountsQuery(projectId: string, userId: string) {
+  return db
+    .selectFrom("Topic")
+    .select([
+      sql<number>`count(*)::int`.as("all"),
+      sql<number>`(count(*) FILTER (WHERE "assigneeId" = ${userId} AND status = 'OPEN'))::int`.as("mine"),
+      sql<number>`(count(*) FILTER (WHERE "authorId" = ${userId}))::int`.as("asked"),
+      sql<number>`(count(*) FILTER (WHERE status = 'OPEN'))::int`.as("open"),
+      sql<number>`(count(*) FILTER (WHERE status = 'SOLVED'))::int`.as("solved"),
+      sql<number>`(count(*) FILTER (WHERE "isFaq"))::int`.as("faq"),
+    ])
+    .where("projectId", "=", projectId);
 }
 
-export async function getTopic(projectId: string, topicId: string) {
-  const topic = await db
+export function topicDetailQuery(projectId: string, topicId: string) {
+  return db
     .selectFrom("Topic as o")
     .selectAll("o")
     .select((eb) => [
@@ -100,15 +97,18 @@ export async function getTopic(projectId: string, topicId: string) {
       ).as("replies"),
     ])
     .where("o.id", "=", topicId)
-    .where("o.projectId", "=", projectId)
-    .executeTakeFirst();
-  return topic ?? null;
+    .where("o.projectId", "=", projectId);
 }
 
-export function listFaq(projectId: string, excludeId?: string) {
-  let query = db.selectFrom("Topic").select(["id", "title"]).where("projectId", "=", projectId).where("isFaq", "=", true);
-  if (excludeId) query = query.where("id", "!=", excludeId);
-  return query.orderBy("lastActivityAt", "desc").limit(8).execute();
+export function faqQuery(projectId: string, excludeId: string) {
+  return db
+    .selectFrom("Topic")
+    .select(["id", "title"])
+    .where("projectId", "=", projectId)
+    .where("isFaq", "=", true)
+    .where("id", "!=", excludeId)
+    .orderBy("lastActivityAt", "desc")
+    .limit(8);
 }
 
 /** 浏览数 +1（帖子详情页在响应结束后调用） */

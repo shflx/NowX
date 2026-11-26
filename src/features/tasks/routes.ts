@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 
+import { db } from "@/server/db";
+import { jsonArrayFrom, jsonObjectFrom } from "@/server/db/json";
 import { requireProjectByKey } from "@/server/permissions";
 
-import { getTaskDetail, listTasks, loadTaskFormOptions } from "./queries";
+import { loadTaskFormOptions, taskDetailQuery, taskListQuery } from "./queries";
 
 export const routes = new Hono();
 
@@ -21,10 +23,13 @@ async function loadTasksPage(key: string, params: { cycle?: string; assignee?: s
   const filter = { cycle, assignee: params.assignee ?? "all", q: params.q ?? "" };
   const taskNumber = Number(params.task);
 
-  const [tasks, detail] = await Promise.all([
-    listTasks(project.id, filter, user.id),
-    Number.isInteger(taskNumber) && taskNumber > 0 ? getTaskDetail(project.id, taskNumber) : null,
-  ]);
+  // 任务列表与打开的任务详情合并为一条查询
+  const { tasks, detail } = await db
+    .selectNoFrom(() => [
+      jsonArrayFrom(taskListQuery(project.id, filter, user.id)).as("tasks"),
+      jsonObjectFrom(taskDetailQuery(project.id, Number.isInteger(taskNumber) && taskNumber > 0 ? taskNumber : 0)).as("detail"),
+    ])
+    .executeTakeFirstOrThrow();
   return { user, project: { id: project.id, key: project.key }, options, filter, tasks, detail };
 }
 

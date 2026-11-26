@@ -1,14 +1,17 @@
 import { type ExpressionBuilder, sql } from "kysely";
 
 import type { CycleStatus } from "@/lib/enums";
-import { db } from "@/server/db";
-import { jsonArrayFrom, jsonObjectFrom } from "@/server/db/json";
+import { countInt, db } from "@/server/db";
+import { jsonArrayFrom, jsonBuildObject, jsonDate, jsonObjectFrom } from "@/server/db/json";
 import type { DB } from "@/server/db/schema";
+
+// 以下函数返回查询（不执行），由页面接口合并为一条 SQL 后执行
 
 type RequirementScope = ExpressionBuilder<DB & { r: DB["Requirement"] }, "r">;
 
-/** 计划交付周期。JSON 中的日期转为 timestamp，前端按 UTC 零点还原为 Date（与 @db.Date 一致） */
-const plannedCycle = (eb: RequirementScope) =>
+const relations = (eb: RequirementScope) => [
+  jsonObjectFrom(eb.selectFrom("User as u").select(["u.id", "u.name", "u.color"]).whereRef("u.id", "=", "r.ownerId")).as("owner"),
+  // 计划交付周期
   jsonObjectFrom(
     eb
       .selectFrom("Cycle as c")
@@ -16,23 +19,19 @@ const plannedCycle = (eb: RequirementScope) =>
         "c.id",
         "c.name",
         sql<CycleStatus>`c.status`.as("status"),
-        sql<Date>`c."startDate"::timestamp`.as("startDate"),
-        sql<Date>`c."endDate"::timestamp`.as("endDate"),
+        jsonDate("c.startDate").as("startDate"),
+        jsonDate("c.endDate").as("endDate"),
       ])
       .whereRef("c.id", "=", "r.cycleId"),
-  );
-
-const relations = (eb: RequirementScope) => [
-  jsonObjectFrom(eb.selectFrom("User as u").select(["u.id", "u.name", "u.color"]).whereRef("u.id", "=", "r.ownerId")).as("owner"),
-  plannedCycle(eb).as("cycle"),
+  ).as("cycle"),
   jsonObjectFrom(eb.selectFrom("Cycle as c").select("c.name").whereRef("c.id", "=", "r.carriedFromCycleId")).as("carriedFrom"),
   jsonArrayFrom(
     eb.selectFrom("RequirementDoc as d").selectAll("d").whereRef("d.requirementId", "=", "r.id").orderBy("d.sort", "asc"),
   ).as("docs"),
 ];
 
-export async function listRequirements(projectId: string) {
-  const rows = await db
+export function requirementListQuery(projectId: string) {
+  return db
     .selectFrom("Requirement as r")
     .selectAll("r")
     .select((eb) => [
@@ -47,13 +46,11 @@ export async function listRequirements(projectId: string) {
       ).as("tasks"),
     ])
     .where("r.projectId", "=", projectId)
-    .orderBy("r.number", "desc")
-    .execute();
-  return rows.map(({ tasks, ...r }) => ({ ...r, ...progressOf(tasks) }));
+    .orderBy("r.number", "desc");
 }
 
-export async function getRequirement(projectId: string, number: number) {
-  const requirement = await db
+export function requirementDetailQuery(projectId: string, number: number) {
+  return db
     .selectFrom("Requirement as r")
     .selectAll("r")
     .select((eb) => [
@@ -73,14 +70,12 @@ export async function getRequirement(projectId: string, number: number) {
             jsonObjectFrom(
               t
                 .selectFrom("Cycle as c")
-                .select(["c.name", sql<Date>`c."startDate"::timestamp`.as("startDate")])
+                .select(["c.name", jsonDate("c.startDate").as("startDate")])
                 .whereRef("c.id", "=", "t.cycleId"),
             ).as("cycle"),
-            t
-              .selectFrom("Task as s")
-              .select(sql<number>`count(*)::int`.as("n"))
-              .whereRef("s.parentId", "=", "t.id")
-              .as("subtasks"),
+            jsonBuildObject({
+              subtasks: t.selectFrom("Task as s").select(countInt.as("n")).whereRef("s.parentId", "=", "t.id").$castTo<number>(),
+            }).as("_count"),
           ])
           .whereRef("t.requirementId", "=", "r.id")
           .where("t.parentId", "is", null)
@@ -95,12 +90,13 @@ export async function getRequirement(projectId: string, number: number) {
       ).as("materials"),
     ])
     .where("r.projectId", "=", projectId)
-    .where("r.number", "=", number)
-    .executeTakeFirst();
-  if (!requirement) return null;
+    .where("r.number", "=", number);
+}
 
-  // 相关讨论：直接关联到需求的帖子 + 关联到其任务的帖子
-  const topics = await db
+/** 相关讨论：直接关联到需求的帖子 + 关联到其任务的帖子 */
+export function requirementTopicsQuery(projectId: string, number: number) {
+  const requirementId = db.selectFrom("Requirement").select("id").where("projectId", "=", projectId).where("number", "=", number);
+  return db
     .selectFrom("Topic as o")
     .leftJoin("Task as t", "t.id", "o.taskId")
     .select((eb) => [
@@ -108,27 +104,17 @@ export async function getRequirement(projectId: string, number: number) {
       "o.title",
       "o.status",
       "o.isFaq",
-      eb
-        .selectFrom("Reply as p")
-        .select(sql<number>`count(*)::int`.as("n"))
-        .whereRef("p.topicId", "=", "o.id")
-        .as("replies"),
+      jsonBuildObject({
+        replies: eb.selectFrom("Reply as p").select(countInt.as("n")).whereRef("p.topicId", "=", "o.id").$castTo<number>(),
+      }).as("_count"),
     ])
     .where("o.projectId", "=", projectId)
-    .where((eb) => eb.or([eb("o.requirementId", "=", requirement.id), eb("t.requirementId", "=", requirement.id)]))
-    .orderBy("o.lastActivityAt", "desc")
-    .execute();
-
-  const tasks = requirement.tasks.map(({ subtasks, ...t }) => ({ ...t, _count: { subtasks: subtasks ?? 0 } }));
-  return {
-    ...requirement,
-    tasks,
-    topics: topics.map(({ replies, ...t }) => ({ ...t, _count: { replies: replies ?? 0 } })),
-    ...progressOf(tasks),
-  };
+    .where((eb) => eb.or([eb("o.requirementId", "in", requirementId), eb("t.requirementId", "in", requirementId)]))
+    .orderBy("o.lastActivityAt", "desc");
 }
 
-function progressOf(tasks: { status: string }[]) {
+/** 任务完成进度（不计已取消的任务） */
+export function progressOf(tasks: { status: string }[]) {
   const active = tasks.filter((t) => t.status !== "CANCELED");
   const done = active.filter((t) => t.status === "DONE").length;
   return { taskCount: active.length, doneCount: done, percent: active.length ? Math.round((done / active.length) * 100) : 0 };

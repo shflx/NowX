@@ -1,12 +1,12 @@
 import { Hono } from "hono";
-import { sql } from "kysely";
 
 import { OPEN_TASK_STATUSES } from "@/lib/constants";
 import { isAdmin, requireUser } from "@/server/auth/dal";
-import { db } from "@/server/db";
+import { countInt, db } from "@/server/db";
+import { jsonArrayFrom } from "@/server/db/json";
 import { requireProjectByKey } from "@/server/permissions";
 
-import { listActiveUsers, listOpenProjects, listProjectMembers, listProjectsForAdmin } from "./queries";
+import { activeUsersQuery, adminProjectsQuery, openProjectsQuery, projectMembersQuery } from "./queries";
 
 export const routes = new Hono();
 
@@ -15,20 +15,25 @@ async function loadProjectSettings(key: string) {
   const { user, project } = await requireProjectByKey(key);
   if (!isAdmin(user)) return { allowed: false as const };
 
-  const [members, taskCounts, allProjects, directory] = await Promise.all([
-    listProjectMembers(project.id),
-    db
-      .selectFrom("Task as t")
-      .innerJoin("Cycle as c", "c.id", "t.cycleId")
-      .select(["t.assigneeId", sql<number>`count(*)::int`.as("count")])
-      .where("t.projectId", "=", project.id)
-      .where("t.status", "in", OPEN_TASK_STATUSES)
-      .where("c.status", "=", "ACTIVE")
-      .groupBy("t.assigneeId")
-      .execute(),
-    listOpenProjects(),
-    listActiveUsers(),
-  ]);
+  const { members, allProjects, directory } = await db
+    .selectNoFrom(() => [
+      jsonArrayFrom(
+        projectMembersQuery(project.id).select((eb) =>
+          eb
+            .selectFrom("Task as t")
+            .innerJoin("Cycle as c", "c.id", "t.cycleId")
+            .select(countInt.as("n"))
+            .whereRef("t.assigneeId", "=", "u.id")
+            .where("t.projectId", "=", project.id)
+            .where("t.status", "in", OPEN_TASK_STATUSES)
+            .where("c.status", "=", "ACTIVE")
+            .as("activeTasks"),
+        ),
+      ).as("members"),
+      jsonArrayFrom(openProjectsQuery()).as("allProjects"),
+      jsonArrayFrom(activeUsersQuery()).as("directory"),
+    ])
+    .executeTakeFirstOrThrow();
 
   return {
     allowed: true as const,
@@ -41,7 +46,7 @@ async function loadProjectSettings(key: string) {
       color: project.color,
       archived: Boolean(project.archivedAt),
     },
-    members: members.map((m) => ({ ...m, activeTasks: taskCounts.find((c) => c.assigneeId === m.id)?.count ?? 0 })),
+    members: members.map((m) => ({ ...m, activeTasks: m.activeTasks ?? 0 })),
     allProjects,
     directory,
   };
@@ -53,7 +58,9 @@ export type ProjectSettingsData = Awaited<ReturnType<typeof loadProjectSettings>
 async function loadAdminProjects() {
   const user = await requireUser();
   if (!isAdmin(user)) return { allowed: false as const };
-  const [projects, directory] = await Promise.all([listProjectsForAdmin(), listActiveUsers()]);
+  const { projects, directory } = await db
+    .selectNoFrom(() => [jsonArrayFrom(adminProjectsQuery()).as("projects"), jsonArrayFrom(activeUsersQuery()).as("directory")])
+    .executeTakeFirstOrThrow();
   return { allowed: true as const, user, projects, directory };
 }
 

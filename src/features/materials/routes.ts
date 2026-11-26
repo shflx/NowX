@@ -1,42 +1,41 @@
 import { Hono } from "hono";
-import { sql } from "kysely";
 
 import { AttachmentLimitError } from "@/lib/attachment-limit";
 import { MAX_UPLOAD_BYTES } from "@/lib/constants";
 import { routes as pages } from "@/lib/routes";
 import { recordActivity } from "@/server/activity";
 import { getCurrentUser } from "@/server/auth/dal";
-import { db } from "@/server/db";
+import { countInt, db } from "@/server/db";
 import { cuid } from "@/server/db/id";
+import { jsonArrayFrom } from "@/server/db/json";
 import { publishProjectChange } from "@/server/events";
 import { canAccessProject, requireProjectByKey } from "@/server/permissions";
 import { deleteFile, openFile, saveFile } from "@/server/storage";
 
-import { listMaterials, listTags } from "./queries";
+import { materialsQuery, tagsQuery } from "./queries";
 import { findOrCreateTag, validTagIds } from "./service";
 
 export const routes = new Hono();
 
-/** 材料库：标签及数量、当前标签下的材料 */
+/** 材料库：标签及数量、当前标签下的材料（一条查询） */
 async function loadMaterialsPage(key: string, tag: string | undefined) {
   const { user, project } = await requireProjectByKey(key);
-  const [tags, { total }, requirements] = await Promise.all([
-    listTags(project.id),
-    db
-      .selectFrom("Material")
-      .select(sql<number>`count(*)::int`.as("total"))
-      .where("projectId", "=", project.id)
-      .executeTakeFirstOrThrow(),
-    db
-      .selectFrom("Requirement")
-      .select(["id", "number", "title"])
-      .where("projectId", "=", project.id)
-      .orderBy("number", "desc")
-      .execute(),
-  ]);
+  const { tags, total, requirements, materials } = await db
+    .selectNoFrom(() => [
+      jsonArrayFrom(tagsQuery(project.id)).as("tags"),
+      db.selectFrom("Material").select(countInt.as("n")).where("projectId", "=", project.id).as("total"),
+      jsonArrayFrom(
+        db
+          .selectFrom("Requirement")
+          .select(["id", "number", "title"])
+          .where("projectId", "=", project.id)
+          .orderBy("number", "desc"),
+      ).as("requirements"),
+      jsonArrayFrom(materialsQuery(project.id, tag ?? null)).as("materials"),
+    ])
+    .executeTakeFirstOrThrow();
   const activeTag = tag && tags.some((t) => t.id === tag) ? tag : null;
-  const materials = await listMaterials(project.id, activeTag ?? undefined);
-  return { user, project: { id: project.id, key: project.key }, tags, total, requirements, activeTag, materials };
+  return { user, project: { id: project.id, key: project.key }, tags, total: total ?? 0, requirements, activeTag, materials };
 }
 
 export type MaterialsPageData = Awaited<ReturnType<typeof loadMaterialsPage>>;
