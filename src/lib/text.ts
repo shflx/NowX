@@ -17,7 +17,7 @@ export function sharesKeyword(a: string, b: string) {
 export function excerpt(markdown: string, length = 80) {
   const plain = markdown
     .replace(/```[\s\S]*?```/g, " ")
-    .replace(/[`*_>#\[\]()-]/g, "")
+    .replace(/[`*_>#[\]()-]/g, "")
     .replace(/\s+/g, " ")
     .trim();
   return plain.length > length ? `${plain.slice(0, length)}…` : plain;

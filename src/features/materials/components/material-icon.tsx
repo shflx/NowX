@@ -1,6 +1,6 @@
 import { LinkIcon } from "lucide-react";
 
-import type { DocType, MaterialKind } from "@/generated/prisma/enums";
+import type { DocType, MaterialKind } from "@/lib/enums";
 import { cn } from "@/lib/utils";
 
 const DOC_BG: Record<DocType, string> = {

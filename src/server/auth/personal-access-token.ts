@@ -1,88 +1,113 @@
-import "server-only";
-
 import { createHash, randomBytes } from "node:crypto";
 
 import { ActionError } from "@/lib/action-result";
 import { DAY_MS } from "@/lib/dates";
 import type { CurrentUser } from "@/server/auth/dal";
-import { db, type Tx } from "@/server/db";
+import { type Database, db, type Tx } from "@/server/db";
+import { cuid } from "@/server/db/id";
 
 /** 个人访问令牌有效期 */
 const TOKEN_TTL = 90 * DAY_MS;
-const activeUser = { status: "ACTIVE", mustChangePassword: false } as const;
-const metadata = {
-  id: true,
-  name: true,
-  prefix: true,
-  expiresAt: true,
-  lastUsedAt: true,
-  revokedAt: true,
-  createdAt: true,
-} as const;
+const metadata = ["id", "name", "prefix", "expiresAt", "lastUsedAt", "revokedAt", "createdAt"] as const;
 
 const digestOf = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export async function createPersonalAccessToken(userId: string, name: string) {
-  return db.$transaction(async (tx) => {
+  return db.transaction().execute(async (tx) => {
     // 与账号状态和密码更新串行，确保先签发的令牌会被后续吊销。
-    const users = await tx.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "User"
-      WHERE id = ${userId} AND status = 'ACTIVE' AND NOT "mustChangePassword"
-      FOR UPDATE
-    `;
-    if (!users.length) throw new ActionError("当前账号不能创建访问令牌");
+    const user = await tx
+      .selectFrom("User")
+      .select("id")
+      .where("id", "=", userId)
+      .where("status", "=", "ACTIVE")
+      .where("mustChangePassword", "=", false)
+      .forUpdate()
+      .executeTakeFirst();
+    if (!user) throw new ActionError("当前账号不能创建访问令牌");
 
     const token = `nowx_pat_${randomBytes(32).toString("base64url")}`;
-    const record = await tx.personalAccessToken.create({
-      data: {
+    const record = await tx
+      .insertInto("PersonalAccessToken")
+      .values({
+        id: cuid(),
         userId,
         name,
         prefix: token.slice(0, 17),
         digest: digestOf(token),
         expiresAt: new Date(Date.now() + TOKEN_TTL),
-      },
-      select: metadata,
-    });
+      })
+      .returning(metadata)
+      .executeTakeFirstOrThrow();
     return { ...record, token };
   });
 }
 
 export function listPersonalAccessTokens(userId: string) {
-  return db.personalAccessToken.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, select: metadata });
+  return db
+    .selectFrom("PersonalAccessToken")
+    .select(metadata)
+    .where("userId", "=", userId)
+    .orderBy("createdAt", "desc")
+    .execute();
 }
 
-export function revokePersonalAccessToken(userId: string, id: string) {
-  return db.personalAccessToken.updateMany({ where: { id, userId, revokedAt: null }, data: { revokedAt: new Date() } });
+export async function revokePersonalAccessToken(userId: string, id: string) {
+  const { numUpdatedRows } = await db
+    .updateTable("PersonalAccessToken")
+    .set({ revokedAt: new Date() })
+    .where("id", "=", id)
+    .where("userId", "=", userId)
+    .where("revokedAt", "is", null)
+    .executeTakeFirst();
+  return { count: Number(numUpdatedRows) };
 }
 
 /** 与账号状态或密码更新使用同一事务。 */
-export function revokeUserPersonalAccessTokens(tx: Tx, userId: string) {
-  return tx.personalAccessToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+export function revokeUserPersonalAccessTokens(tx: Database | Tx, userId: string) {
+  return tx
+    .updateTable("PersonalAccessToken")
+    .set({ revokedAt: new Date() })
+    .where("userId", "=", userId)
+    .where("revokedAt", "is", null)
+    .execute();
 }
 
-function validTokenWhere(now: Date) {
-  return { revokedAt: null, expiresAt: { gt: now }, user: activeUser };
+/** 有效令牌：未吊销、未过期，且所属账号正常、无需改密 */
+function validToken(now: Date) {
+  return db
+    .selectFrom("PersonalAccessToken as t")
+    .innerJoin("User as u", "u.id", "t.userId")
+    .where("t.revokedAt", "is", null)
+    .where("t.expiresAt", ">", now)
+    .where("u.status", "=", "ACTIVE")
+    .where("u.mustChangePassword", "=", false);
 }
 
 export async function findValidPersonalAccessToken(authorization: string | null) {
   const token = authorization?.match(/^Bearer (nowx_pat_[A-Za-z0-9_-]{43})$/i)?.[1];
   if (!token) return null;
 
-  return db.personalAccessToken.findUnique({
-    where: { digest: digestOf(token), ...validTokenWhere(new Date()) },
-    select: { id: true, userId: true },
-  });
+  const record = await validToken(new Date())
+    .select(["t.id", "t.userId"])
+    .where("t.digest", "=", digestOf(token))
+    .executeTakeFirst();
+  return record ?? null;
 }
 
 /** 通过入口检查后才记录使用，并以此时的账号权限处理请求。 */
 export async function recordPersonalAccessTokenUse(id: string): Promise<CurrentUser | null> {
   const now = new Date();
-  const [record] = await db.personalAccessToken.updateManyAndReturn({
-    where: { id, ...validTokenWhere(now) },
-    data: { lastUsedAt: now },
-    select: {
-      user: { select: { id: true, login: true, name: true, title: true, role: true, color: true, mustChangePassword: true } },
-    },
-  });
-  return record?.user ?? null;
+  const user = await db
+    .updateTable("PersonalAccessToken as t")
+    .from("User as u")
+    .set({ lastUsedAt: now })
+    .whereRef("u.id", "=", "t.userId")
+    .where("t.id", "=", id)
+    .where("t.revokedAt", "is", null)
+    .where("t.expiresAt", ">", now)
+    .where("u.status", "=", "ACTIVE")
+    .where("u.mustChangePassword", "=", false)
+    .returning(["u.id", "u.login", "u.name", "u.title", "u.role", "u.color", "u.mustChangePassword"])
+    .executeTakeFirst();
+  return user ?? null;
 }

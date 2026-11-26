@@ -1,5 +1,3 @@
-import "server-only";
-
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 

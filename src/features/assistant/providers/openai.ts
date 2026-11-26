@@ -1,5 +1,3 @@
-import "server-only";
-
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources/chat/completions";
 import { z } from "zod";

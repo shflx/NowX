@@ -1,19 +1,11 @@
-"use client";
-
-import { useParams } from "next/navigation";
 import { createContext, type ReactNode, use } from "react";
 
-import type { NavProject } from "@/features/projects/queries";
-import type { CurrentUser } from "@/server/auth/dal";
+import { useParams } from "@/lib/navigation";
+import { useApi } from "@/lib/query";
+import type { WorkspaceData } from "@/server/api/workspace";
 
-export type WorkspaceValue = {
-  user: CurrentUser;
-  projects: NavProject[];
-  /** 没有处在项目页面时（如工作台），侧边栏展示的项目 */
-  fallbackProjectKey: string | null;
+export type WorkspaceValue = Omit<WorkspaceData, "notifications" | "config"> & {
   assistantEnabled: boolean;
-  /** 全部正常状态的账号（仅管理员加载，用于新建项目、添加成员） */
-  directory: { id: string; name: string; title: string; color: string }[];
 };
 
 const WorkspaceContext = createContext<WorkspaceValue | null>(null);
@@ -26,6 +18,16 @@ export function useWorkspace() {
   const value = use(WorkspaceContext);
   if (!value) throw new Error("useWorkspace 需要在 WorkspaceProvider 内使用");
   return value;
+}
+
+/** 工作区数据（侧边栏、顶栏、页面共用同一份缓存） */
+export function useWorkspaceData() {
+  return useApi<WorkspaceData>("/api/workspace");
+}
+
+/** 运行时配置：应用时区、站点地址、是否启用项目助手 */
+export function useAppConfig() {
+  return useWorkspaceData().config;
 }
 
 /** 当前项目：优先取 URL 中的项目编号，其次是最近访问的项目 */

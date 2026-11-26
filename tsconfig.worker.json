@@ -1,0 +1,10 @@
+{
+  // Worker 入口与 Durable Object：使用 Workers 运行时类型（由 cf workers types 生成），不含 DOM
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["esnext"],
+    "types": ["node"]
+  },
+  "include": ["workers", ".cloudflare/types/index.d.ts"],
+  "exclude": ["node_modules"]
+}

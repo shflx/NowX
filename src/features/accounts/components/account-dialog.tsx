@@ -1,5 +1,3 @@
-"use client";
-
 import { RefreshCwIcon } from "lucide-react";
 import { useState } from "react";
 

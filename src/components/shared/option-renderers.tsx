@@ -1,9 +1,9 @@
 // 常用选项的富文本渲染，供 OptionSelect / SearchSelect 使用
 import { PriorityIndicator, TaskStatusIcon } from "@/components/shared/task-status";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import type { TaskPriority, TaskStatus } from "@/generated/prisma/enums";
 import { canBlock, canChangeStatus } from "@/features/tasks/status-flow";
 import { PRIORITY_ORDER, TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from "@/lib/constants";
+import type { TaskPriority, TaskStatus } from "@/lib/enums";
 
 import { NONE, type Option } from "./option-select";
 

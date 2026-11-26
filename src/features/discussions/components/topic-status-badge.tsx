@@ -1,6 +1,6 @@
 import { StatusBadge, type Tone } from "@/components/shared/status-badge";
-import type { TopicStatus } from "@/generated/prisma/enums";
 import { TOPIC_STATUS_LABEL } from "@/lib/constants";
+import type { TopicStatus } from "@/lib/enums";
 
 const TONE: Record<TopicStatus, Tone> = { OPEN: "warn", SOLVED: "ok", CLOSED: "neutral" };
 

@@ -1,5 +1,3 @@
-"use client";
-
 import { createContext, type ReactNode, use, useState } from "react";
 
 export type Turn = { role: "user" | "assistant"; content: string };

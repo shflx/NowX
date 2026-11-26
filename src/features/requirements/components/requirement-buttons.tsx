@@ -1,12 +1,10 @@
-"use client";
-
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { type ComponentProps, useState } from "react";
 
 import { ActionMenu } from "@/components/shared/action-menu";
 import { Button } from "@/components/ui/button";
 import { useAction } from "@/hooks/use-action";
+import { useRouter } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 
 import { deleteRequirement } from "../actions";

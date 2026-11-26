@@ -1,5 +1,3 @@
-"use client";
-
 import { SparklesIcon, XIcon } from "lucide-react";
 import { type PointerEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 

@@ -1,7 +1,7 @@
-import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { Link } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 /**

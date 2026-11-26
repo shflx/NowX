@@ -1,13 +1,11 @@
-import "server-only";
-
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import { requirementSchema } from "@/features/requirements/schemas";
 import { taskFieldsSchema } from "@/features/tasks/schemas";
-import { RequirementStatus, TaskStatus } from "@/generated/prisma/enums";
 import { ActionError } from "@/lib/action-result";
+import { RequirementStatus, TaskStatus } from "@/lib/enums";
 import type { CurrentUser } from "@/server/auth/dal";
 
 import { createProjectRequirement, createProjectTask, updateProjectRequirement, updateProjectTask } from "./mutations";
@@ -56,11 +54,14 @@ const createRequirementInput = z.strictObject({
   ownerId: person.default(null),
   cycleId: cycleId.default(null),
 });
-const updateRequirementInput = z.strictObject({
-  ...requirementWriteFields,
-  summary: requirementSchema.shape.summary.removeDefault(),
-  docs: requirementSchema.shape.docs.removeDefault(),
-}).partial().extend({ projectKey, number: requirementNumber });
+const updateRequirementInput = z
+  .strictObject({
+    ...requirementWriteFields,
+    summary: requirementSchema.shape.summary.removeDefault(),
+    docs: requirementSchema.shape.docs.removeDefault(),
+  })
+  .partial()
+  .extend({ projectKey, number: requirementNumber });
 
 const taskNumber = recordNumber.describe("数字编号或任务编号，例如 CRM-12");
 const taskWriteFields = z.strictObject({
@@ -79,9 +80,12 @@ const createTaskInput = taskWriteFields.extend({
   cycleId: cycleId.default(null),
   requirement: taskWriteFields.shape.requirement.default(null),
 });
-const updateTaskInput = taskWriteFields.extend({
-  description: taskWriteFields.shape.description.removeDefault(),
-}).partial().extend({ projectKey, number: taskNumber });
+const updateTaskInput = taskWriteFields
+  .extend({
+    description: taskWriteFields.shape.description.removeDefault(),
+  })
+  .partial()
+  .extend({ projectKey, number: taskNumber });
 
 const toolAnnotations = {
   read: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },

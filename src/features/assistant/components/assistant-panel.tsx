@@ -1,12 +1,10 @@
-"use client";
-
 import { ArrowUpIcon, BotIcon, RotateCcwIcon, XIcon } from "lucide-react";
-import { useParams } from "next/navigation";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 import { Markdown } from "@/components/shared/markdown";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { Button } from "@/components/ui/button";
+import { useParams } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 import { useAssistant } from "./assistant-provider";

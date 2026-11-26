@@ -1,6 +1,3 @@
-"use client";
-
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ColorSwatches } from "@/components/shared/color-swatches";
@@ -12,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
 import { PROJECT_COLORS } from "@/lib/constants";
+import { useRouter } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 
 import { createProject } from "../actions";

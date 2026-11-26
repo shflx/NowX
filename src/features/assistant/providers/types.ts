@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { AssistantConfig } from "@/server/config";
 
 import type { AssistantTool } from "../tool-definition";

@@ -10,23 +10,18 @@
 /blob-report
 /playwright/.cache
 
-# Next.js
-/.next/
-/out/
-/build
-next-env.d.ts
+# 构建产物与 Cloudflare 本地状态、生成的类型
+/dist/
+/.cloudflare/
 *.tsbuildinfo
 
-# Prisma 生成的客户端
-/src/generated
+# Prisma 生成的客户端（仅本地脚本与测试使用）
+/prisma/generated
 
-# 本地上传文件
-/storage
-
-# 环境变量（.env.example 需要提交）
+# 环境变量（示例文件需要提交）
 .env*
 !.env.example
-!.env.production.example
+.dev.vars
 
 # 调试与系统文件
 .DS_Store
@@ -36,8 +31,3 @@ npm-debug.log*
 
 # 静态 UI 原型（仅本地参考）
 /prototypes
-/dist/
-.vinext/
-.cloudflare/
-/workers/.schema.prisma
-/workers/.generated/

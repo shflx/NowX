@@ -1,7 +1,4 @@
-"use client";
-
 import { FileTextIcon, PlusIcon, UploadIcon, XIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -14,13 +11,14 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import type { DocType, RequirementStatus } from "@/generated/prisma/enums";
 import { uploadMaterialFile } from "@/features/materials/upload";
 import { cycleOptions } from "@/features/tasks/components/task-option-builders";
 import type { CycleLite } from "@/features/tasks/components/types";
 import { useAction } from "@/hooks/use-action";
 import { detectDocType, MAX_UPLOAD_BYTES, REQUIREMENT_STATUS_LABEL } from "@/lib/constants";
+import type { DocType, RequirementStatus } from "@/lib/enums";
 import { formatFileSize } from "@/lib/format";
+import { useRouter } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 
 import { createRequirement, updateRequirement } from "../actions";

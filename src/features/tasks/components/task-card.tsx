@@ -1,10 +1,10 @@
 import { GitBranchIcon, MessageSquareIcon } from "lucide-react";
-import Link from "next/link";
 
 import { StatusBadge } from "@/components/shared/status-badge";
 import { PriorityIndicator } from "@/components/shared/task-status";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { formatMonthDay } from "@/lib/dates";
+import { Link } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 import type { TaskCardData } from "../serialize";

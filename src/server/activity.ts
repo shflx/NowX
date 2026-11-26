@@ -1,6 +1,5 @@
-import "server-only";
-
-import { db, type Tx } from "@/server/db";
+import { type Database, db, type Tx } from "@/server/db";
+import { cuid } from "@/server/db/id";
 
 type ActivityInput = {
   projectId: string;
@@ -13,6 +12,9 @@ type ActivityInput = {
 };
 
 /** 记录项目动态（工作台「最近动态」的数据来源） */
-export async function recordActivity(input: ActivityInput, tx: Tx = db) {
-  await tx.activity.create({ data: input });
+export async function recordActivity(input: ActivityInput, tx: Database | Tx = db) {
+  await tx
+    .insertInto("Activity")
+    .values({ id: cuid(), ...input })
+    .execute();
 }

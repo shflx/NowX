@@ -1,29 +1,22 @@
-import "server-only";
+import { createHash } from "node:crypto";
 
-// 进程内固定窗口限流，用于登录防爆破。单实例部署下足够；多实例需要换成共享存储。
+import { requestContext } from "./context";
 
-type Bucket = { count: number; resetAt: number };
+// 固定窗口限流：每个限流键对应一个 RateLimit Durable Object，多实例之间共享计数。
 
-const globalForLimit = globalThis as unknown as { rateLimitBuckets?: Map<string, Bucket> };
-const buckets = (globalForLimit.rateLimitBuckets ??= new Map());
+function bucketFor(key: string) {
+  return requestContext().env.RATE_LIMIT.getByName(createHash("sha256").update(key).digest("hex"));
+}
 
-/** 记录一次失败尝试，返回是否已超过上限 */
+/** 记录一次尝试，返回是否已超过上限 */
 export function hitLimit(key: string, limit: number, windowMs: number) {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return false;
-  }
-  bucket.count += 1;
-  return bucket.count > limit;
+  return bucketFor(key).hit(limit, windowMs);
 }
 
 export function isLimited(key: string, limit: number) {
-  const bucket = buckets.get(key);
-  return Boolean(bucket && bucket.resetAt > Date.now() && bucket.count >= limit);
+  return bucketFor(key).isLimited(limit);
 }
 
 export function resetLimit(key: string) {
-  buckets.delete(key);
+  return bucketFor(key).reset();
 }

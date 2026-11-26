@@ -1,5 +1,3 @@
-import "server-only";
-
 import { formatLongDate } from "@/lib/dates";
 import type { CurrentUser } from "@/server/auth/dal";
 import { appConfig, today } from "@/server/config";

@@ -1,8 +1,4 @@
-"use client";
-
 import { BanIcon, HashIcon, MessagesSquareIcon, LinkIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -19,17 +15,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import type { DocType, TaskPriority, TaskStatus, TopicStatus } from "@/generated/prisma/enums";
 import { NewTopicButton } from "@/features/discussions/components/topic-form-dialog";
 import { TopicStatusBadge } from "@/features/discussions/components/topic-status-badge";
 import { useAction } from "@/hooks/use-action";
 import { isOpenTask } from "@/lib/constants";
+import type { DocType, TaskPriority, TaskStatus, TopicStatus } from "@/lib/enums";
+import { Link, useRouter } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 
 import { addTaskComment, createSubtask, deleteTask, updateTask } from "../actions";
 import { BlockTaskDialog } from "./block-task-dialog";
-import { DueDate } from "./task-card";
 import { laterThanRequirement } from "./cycle-hint";
+import { DueDate } from "./task-card";
 import { cycleOptions, requirementOptions } from "./task-option-builders";
 import type { MemberLite, TaskFormOptions } from "./types";
 import { useTaskLink } from "./use-task-link";

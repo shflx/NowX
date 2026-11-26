@@ -1,87 +1,35 @@
-"use server";
+import { action } from "@/lib/action-client";
+import type { ActionResult } from "@/lib/action-result";
+import { redirectTo } from "@/lib/api";
+import { queryClient } from "@/lib/query";
 
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import type * as mutations from "./mutations";
 
-import { type ActionResult, ActionError, parseInput } from "@/lib/action-result";
-import { getCurrentUser } from "@/server/auth/dal";
-import { hashPassword, verifyPassword } from "@/server/auth/password";
-import { revokeUserPersonalAccessTokens } from "@/server/auth/personal-access-token";
-import { createSession, deleteCurrentSession, deleteUserSessions } from "@/server/auth/session";
-import { runAction } from "@/server/action";
-import { db } from "@/server/db";
-import { hitLimit, isLimited, resetLimit } from "@/server/rate-limit";
+const loginAction = action<typeof mutations.login>("auth.login");
+const logoutAction = action<typeof mutations.logout>("auth.logout");
+const changePasswordAction = action<typeof mutations.changePassword>("auth.changePassword");
 
-import { changePasswordSchema, loginSchema } from "./schemas";
-
-/** 同一账号 + IP 在 15 分钟内最多失败 5 次 */
-const LOGIN_LIMIT = 5;
-const LOGIN_WINDOW = 15 * 60 * 1000;
-
-// 账号不存在时也执行一次哈希校验，使响应时间与「密码错误」一致，避免枚举账号
-const DUMMY_HASH = "$argon2id$v=19$m=19456,t=2,p=1$+XogXNHo5KTy89yagwPObw$2iPzxKRwCNgP2+T5K2Z7Wlma4T0ZAJbXRIj6eHvnNYQ";
+// 跳转与表单提交处于同一个过渡中：动作需要正常结束，跳转才能完成
+const done: ActionResult = { ok: true, data: undefined };
 
 export async function login(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
-  const result = await runAction(async () => {
-    const input = parseInput(loginSchema, Object.fromEntries(formData));
-    const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-    const limitKey = `login:${input.login}:${ip}`;
-
-    if (await isLimited(limitKey, LOGIN_LIMIT)) {
-      throw new ActionError("尝试次数过多，请 15 分钟后再试");
-    }
-
-    const user = await db.user.findUnique({ where: { login: input.login } });
-    const valid = await verifyPassword(user?.passwordHash ?? DUMMY_HASH, input.password);
-
-    if (!user || !valid) {
-      await hitLimit(limitKey, LOGIN_LIMIT, LOGIN_WINDOW);
-      throw new ActionError("账号或密码错误");
-    }
-    if (user.status === "DISABLED") {
-      throw new ActionError("该账号已停用，请联系管理员");
-    }
-
-    await resetLimit(limitKey);
-    await createSession(user.id);
-    await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-    return user.mustChangePassword;
-  });
-
+  const result = await loginAction(Object.fromEntries(formData));
   if (!result.ok) return result;
-  redirect(result.data ? "/change-password" : "/");
+  queryClient.clear();
+  redirectTo(result.data.mustChangePassword ? "/change-password" : "/");
+  return done;
 }
 
 export async function logout() {
-  await deleteCurrentSession();
-  redirect("/login");
+  await logoutAction();
+  // 清空上一个账号的页面数据
+  queryClient.clear();
+  redirectTo("/login");
 }
 
 export async function changePassword(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
-  const result = await runAction(async () => {
-    // 这里不用 requireUser：需要改密的用户本来就会被它重定向到本页
-    const current = await getCurrentUser();
-    if (!current) redirect("/login");
-
-    const input = parseInput(changePasswordSchema, Object.fromEntries(formData));
-    const user = await db.user.findUniqueOrThrow({ where: { id: current.id } });
-    if (!(await verifyPassword(user.passwordHash, input.currentPassword))) {
-      throw new ActionError("当前密码不正确", { currentPassword: "当前密码不正确" });
-    }
-
-    const passwordHash = await hashPassword(input.newPassword);
-    await db.$transaction(async (tx) => {
-      const { count } = await tx.user.updateMany({
-        where: { id: user.id, status: "ACTIVE", passwordHash: user.passwordHash },
-        data: { passwordHash, mustChangePassword: false },
-      });
-      if (!count) throw new ActionError("账号状态或密码已变更，请重新登录");
-      await revokeUserPersonalAccessTokens(tx, user.id);
-    });
-    // 改密后让其他设备上的会话失效
-    await deleteUserSessions(user.id, true);
-  });
-
+  const result = await changePasswordAction(Object.fromEntries(formData));
   if (!result.ok) return result;
-  redirect("/");
+  redirectTo("/");
+  return done;
 }

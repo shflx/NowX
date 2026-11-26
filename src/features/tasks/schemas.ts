@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { TaskPriority, TaskStatus } from "@/generated/prisma/enums";
+import { TaskPriority, TaskStatus } from "@/lib/enums";
 
 const optionalId = z.string().min(1).nullable();
 const optionalDate = z

@@ -1,7 +1,4 @@
-"use client";
-
 import { PlusIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { FormField } from "@/components/shared/form-field";
@@ -13,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAction } from "@/hooks/use-action";
+import { useRouter } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 
 import { createTask } from "../actions";

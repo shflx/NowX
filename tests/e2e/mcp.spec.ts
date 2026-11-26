@@ -74,9 +74,13 @@ test("外部 MCP 可用个人访问令牌排期并修改需求和任务，页面
     });
 
     const projectKey = "CRM";
-    const eventRequest = projectPage.waitForRequest((request) => new URL(request.url()).pathname === "/api/events" && new URL(request.url()).searchParams.get("project") === projectKey);
+    // 页面通过 WebSocket 订阅项目的实时推送
+    const eventSocket = projectPage.waitForEvent("websocket", (socket) => {
+      const url = new URL(socket.url());
+      return url.pathname === "/api/events" && url.searchParams.get("project") === projectKey;
+    });
     await projectPage.goto("/projects/CRM/requirements");
-    await eventRequest;
+    await eventSocket;
 
     const cycles = await call("list_cycles", { projectKey });
     const cycle = (cycles.structuredContent as { items: { id: string; status: string }[] }).items.find(({ status }) => status === "ACTIVE");

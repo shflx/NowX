@@ -1,15 +1,13 @@
-"use client";
-
 import { LayoutGridIcon, ListIcon, SearchIcon, UsersIcon } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { UserAvatar } from "@/components/shared/user-avatar";
 import { memberOptions } from "@/components/shared/option-renderers";
 import { OptionSelect } from "@/components/shared/option-select";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CYCLE_STATUS_LABEL } from "@/lib/constants";
+import { usePathname, useRouter, useSearchParams } from "@/lib/navigation";
 
 import type { CycleLite, MemberLite } from "./types";
 

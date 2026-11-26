@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 
 import { ColorSwatches } from "@/components/shared/color-swatches";

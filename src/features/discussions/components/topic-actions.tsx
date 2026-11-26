@@ -1,5 +1,3 @@
-"use client";
-
 import { CheckIcon, StarIcon, StarOffIcon } from "lucide-react";
 import { useState } from "react";
 

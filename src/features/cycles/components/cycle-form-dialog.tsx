@@ -1,6 +1,3 @@
-"use client";
-
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { FormField } from "@/components/shared/form-field";
@@ -12,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAction } from "@/hooks/use-action";
 import { addDays, addOneMonth, diffDays, formatMonthDay } from "@/lib/dates";
+import { useRouter } from "@/lib/navigation";
 
 import { createCycle, updateCycle } from "../actions";
 

@@ -1,7 +1,4 @@
-"use client";
-
 import { FileIcon, LinkIcon, UploadIcon, XIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -19,6 +16,7 @@ import type { RequirementLite } from "@/features/tasks/components/types";
 import { useAction } from "@/hooks/use-action";
 import { detectDocType, MAX_UPLOAD_BYTES } from "@/lib/constants";
 import { formatFileSize } from "@/lib/format";
+import { useRouter } from "@/lib/navigation";
 
 import { createLinkMaterial } from "../actions";
 import { uploadMaterialFile } from "../upload";

@@ -2,9 +2,9 @@
 // 进度统一按「顶层任务数」统计，已取消的任务不计入。
 
 import type { StatusCounts } from "@/components/shared/status-bar";
-import type { TaskStatus } from "@/generated/prisma/enums";
 import { BOARD_STATUSES } from "@/lib/constants";
 import { addDays, diffDays, todayIn } from "@/lib/dates";
+import type { TaskStatus } from "@/lib/enums";
 
 type CountableTask = { status: TaskStatus };
 

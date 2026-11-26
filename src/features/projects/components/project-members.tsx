@@ -1,5 +1,3 @@
-"use client";
-
 import { PlusIcon, UserMinusIcon } from "lucide-react";
 import { useState } from "react";
 

@@ -1,7 +1,7 @@
 // 任务状态流转规则（前后端共用）：阻塞只能从进行中进入，解除后回到进行中。
 
-import type { TaskStatus } from "@/generated/prisma/enums";
 import { diffDays, todayIn } from "@/lib/dates";
+import type { TaskStatus } from "@/lib/enums";
 
 /** 标记和解除阻塞都会自动写一条评论，正文以对应前缀开头，便于识别 */
 export const BLOCK_COMMENT_PREFIX = "**标记为阻塞**：";

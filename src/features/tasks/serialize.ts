@@ -1,7 +1,7 @@
 // 把查询结果转换为客户端组件使用的精简结构（纯函数）
-import type { TaskPriority, TaskStatus } from "@/generated/prisma/enums";
 import { isOpenTask } from "@/lib/constants";
 import { toDateString } from "@/lib/dates";
+import type { TaskPriority, TaskStatus } from "@/lib/enums";
 import { requirementCode, taskCode } from "@/lib/format";
 
 import type { TaskListItem } from "./queries";

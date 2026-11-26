@@ -1,11 +1,8 @@
-"use client";
-
-import Link from "next/link";
-
 import { StatusBadge } from "@/components/shared/status-badge";
 import { PriorityIndicator, TaskStatusIcon } from "@/components/shared/task-status";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Link } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 import type { TaskCardData } from "../serialize";

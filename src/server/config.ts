@@ -1,5 +1,3 @@
-import "server-only";
-
 import { todayIn } from "@/lib/dates";
 
 /** 项目助手支持的接口协议：Anthropic Messages API，或 OpenAI Chat Completions（含兼容服务） */

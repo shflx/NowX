@@ -1,7 +1,4 @@
-"use client";
-
 import { ArchiveIcon, ArchiveRestoreIcon, PlusIcon, SettingsIcon, Trash2Icon } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 
 import { ActionMenu } from "@/components/shared/action-menu";
@@ -11,6 +8,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAction } from "@/hooks/use-action";
+import { Link } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 

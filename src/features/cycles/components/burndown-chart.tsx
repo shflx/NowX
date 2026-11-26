@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 
 import { useElementWidth } from "@/hooks/use-element-width";

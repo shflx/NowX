@@ -1,7 +1,4 @@
-"use client";
-
 import { CheckIcon, ChevronsUpDownIcon, FolderCogIcon, PlusIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ProjectDot } from "@/components/shared/project-dot";
@@ -14,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CreateProjectDialog } from "@/features/projects/components/create-project-dialog";
+import { useRouter } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 
 import { useCurrentProject, useWorkspace } from "./workspace-context";

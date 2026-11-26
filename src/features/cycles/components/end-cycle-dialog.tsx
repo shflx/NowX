@@ -1,5 +1,3 @@
-"use client";
-
 import { CheckCircle2Icon } from "lucide-react";
 import { useState } from "react";
 
@@ -13,9 +11,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import type { TaskStatus } from "@/generated/prisma/enums";
 import { useAction } from "@/hooks/use-action";
 import { formatMonthDay } from "@/lib/dates";
+import type { TaskStatus } from "@/lib/enums";
 
 import { endCycle } from "../actions";
 

@@ -1,8 +1,4 @@
-"use client";
-
 import { CheckIcon, SparklesIcon, StarIcon } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 
 import { FormField } from "@/components/shared/form-field";
@@ -15,6 +11,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAction } from "@/hooks/use-action";
 import { ASSISTANT_MENTION } from "@/lib/constants";
+import { Link, useRouter } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 
 import { createTopic, getTopicLinkOptions, suggestSimilarTopics } from "../actions";

@@ -1,10 +1,8 @@
-"use client";
-
 import { ChevronRightIcon, SearchIcon } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { Kbd } from "@/components/ui/kbd";
+import { usePathname, useRouter } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 

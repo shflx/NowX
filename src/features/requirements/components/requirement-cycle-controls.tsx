@@ -1,5 +1,3 @@
-"use client";
-
 import { CalendarRangeIcon, CheckCircle2Icon } from "lucide-react";
 import { useState } from "react";
 

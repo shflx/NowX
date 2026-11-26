@@ -1,5 +1,3 @@
-"use client";
-
 import {
   DndContext,
   type DragEndEvent,
@@ -16,8 +14,8 @@ import { useId, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { TaskStatusIcon } from "@/components/shared/task-status";
-import type { TaskStatus } from "@/generated/prisma/enums";
 import { BOARD_STATUSES, TASK_STATUS_LABEL } from "@/lib/constants";
+import type { TaskStatus } from "@/lib/enums";
 import { cn } from "@/lib/utils";
 
 import { updateTask } from "../actions";

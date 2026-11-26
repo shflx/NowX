@@ -1,8 +1,8 @@
 import { FileQuestionIcon } from "lucide-react";
-import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Link } from "@/lib/navigation";
 
 /** 404：页面不存在，或无权访问（无权访问的项目同样按不存在处理） */
 export function NotFoundView() {

@@ -1,31 +1,24 @@
-import "server-only";
+import { requestContext } from "./context";
+import { projectChannel } from "./event-channels";
 
-import { EventEmitter } from "node:events";
+export { projectChannel, userChannel } from "./event-channels";
 
-import { type LiveEvent, projectChannel } from "./event-channels";
-
-export { type LiveEvent, projectChannel, userChannel } from "./event-channels";
-
-// 进程内事件总线，用于向浏览器推送「数据已变化」的信号（SSE）。
-// 只适用于单实例部署；如需多实例，需要换成 Postgres LISTEN/NOTIFY 或 Redis。
-
-const globalForEvents = globalThis as unknown as { liveEvents?: EventEmitter };
-const emitter = globalForEvents.liveEvents ?? new EventEmitter();
-emitter.setMaxListeners(0);
-globalForEvents.liveEvents = emitter;
-
-export function publish(channel: string, event: LiveEvent) {
-  emitter.emit(channel, event);
+/**
+ * 通知频道内的在线浏览器刷新数据。每个频道对应一个 LiveEvents Durable Object，
+ * 浏览器通过 /api/events 的 WebSocket 订阅；推送在响应之后完成，不阻塞请求。
+ */
+export function publish(channel: string) {
+  const { env, waitUntil } = requestContext();
+  waitUntil(
+    env.LIVE_EVENTS.getByName(channel)
+      .broadcast()
+      .catch((error) => {
+        console.error("[events] 推送失败", error);
+      }),
+  );
 }
 
 /** 通知项目内所有在线成员刷新数据 */
 export function publishProjectChange(projectId: string) {
-  publish(projectChannel(projectId), { type: "changed" });
-}
-
-export function subscribe(channel: string, listener: (event: LiveEvent) => void) {
-  emitter.on(channel, listener);
-  return () => {
-    emitter.off(channel, listener);
-  };
+  publish(projectChannel(projectId));
 }

@@ -1,43 +1,42 @@
-import "server-only";
+import { AttachmentLimitError } from "@/lib/attachment-limit";
 
-import { createReadStream } from "node:fs";
-import { mkdir, rm, stat, writeFile } from "node:fs/promises";
-import { Readable } from "node:stream";
-import path from "node:path";
+import { requestContext } from "./context";
 
-// 本地磁盘存储。对外只暴露 key（相对路径），以后换成对象存储时只需替换本模块。
-// 路径在运行时计算，turbopackIgnore 告诉构建工具不要据此追踪整个项目的文件。
+// 附件存储在 R2。全团队共用一个 AttachmentQuota 实例，控制总容量与每日读写次数。
 
-const root = path.resolve(/* turbopackIgnore: true */ process.env.STORAGE_DIR ?? "./storage");
-
-/** 把 key 解析为绝对路径，并防止通过 ../ 越出存储目录 */
-function resolveKey(key: string) {
-  const full = path.resolve(/* turbopackIgnore: true */ root, key);
-  if (!full.startsWith(root + path.sep)) throw new Error("非法的存储路径");
-  return full;
+function bindings() {
+  const { ATTACHMENTS, ATTACHMENT_QUOTA } = requestContext().env;
+  return { bucket: ATTACHMENTS, quota: ATTACHMENT_QUOTA.getByName("nowx-team") };
 }
 
-/** 保存文件，返回存储 key。文件名中只保留扩展名，原始文件名记录在数据库中 */
-export async function saveFile(data: Blob, originalName: string) {
-  const now = new Date();
-  const ext = path.extname(originalName).toLowerCase().replace(/[^.a-z0-9]/g, "").slice(0, 12);
-  const key = path.posix.join(
-    String(now.getFullYear()),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    `${crypto.randomUUID()}${ext}`,
-  );
-  const full = resolveKey(key);
-  await mkdir(path.dirname(full), { recursive: true });
-  await writeFile(full, new Uint8Array(await data.arrayBuffer()));
+export async function saveFile(file: Blob) {
+  const { bucket, quota } = bindings();
+  const key = "files/" + crypto.randomUUID();
+  const result = await quota.reserve(key, file.size);
+  if (result === "capacity") throw new AttachmentLimitError("团队附件容量已达 8 GB，请先删除不需要的附件", 507);
+  if (result === "daily") throw new AttachmentLimitError("今天的附件上传次数已用完，北京时间次日 08:00 恢复", 429);
+  try {
+    await bucket.put(key, file.stream());
+  } catch (error) {
+    // 写入结果不确定时先确认对象已删除，再释放预留，避免低估占用。
+    await deleteFile(key);
+    throw error;
+  }
   return key;
 }
 
 export async function openFile(key: string) {
-  const full = resolveKey(key);
-  const info = await stat(full);
-  return { size: info.size, stream: Readable.toWeb(createReadStream(full)) as ReadableStream };
+  const { bucket, quota } = bindings();
+  if (!(await quota.allowRead())) {
+    throw new AttachmentLimitError("今天的附件读取次数已用完，北京时间次日 08:00 恢复", 429);
+  }
+  const object = await bucket.get(key);
+  if (!object) throw new Error("附件不存在");
+  return { size: object.size, stream: object.body };
 }
 
 export async function deleteFile(key: string) {
-  await rm(resolveKey(key), { force: true });
+  const { bucket, quota } = bindings();
+  await bucket.delete(key);
+  await quota.release(key);
 }

@@ -1,5 +1,3 @@
-"use client";
-
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";

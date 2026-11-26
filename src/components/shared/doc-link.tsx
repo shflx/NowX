@@ -1,7 +1,7 @@
 import { ExternalLinkIcon } from "lucide-react";
 
-import type { DocType } from "@/generated/prisma/enums";
 import { DOC_TYPE_META } from "@/lib/constants";
+import type { DocType } from "@/lib/enums";
 import { cn } from "@/lib/utils";
 
 const DOC_COLOR: Record<DocType, string> = {

@@ -1,5 +1,5 @@
-import type { TaskPriority, TaskStatus } from "@/generated/prisma/enums";
 import { TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from "@/lib/constants";
+import type { TaskPriority, TaskStatus } from "@/lib/enums";
 import { cn } from "@/lib/utils";
 
 const STATUS_COLOR: Record<TaskStatus, string> = {

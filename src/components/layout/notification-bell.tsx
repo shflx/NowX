@@ -1,13 +1,11 @@
-"use client";
-
 import { BellIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { markAllNotificationsRead, markNotificationRead } from "@/features/notifications/actions";
+import { useRouter } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 export type BellNotification = { id: string; text: string; href: string; read: boolean; time: string };

@@ -1,6 +1,4 @@
-"use client";
-
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "@/lib/navigation";
 
 /** 生成打开任务详情的链接（保留当前筛选条件） */
 export function useTaskLink() {

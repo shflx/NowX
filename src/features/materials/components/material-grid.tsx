@@ -1,7 +1,4 @@
-"use client";
-
 import { LinkIcon, PencilIcon, PlusIcon, TagIcon, Trash2Icon, UploadIcon } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 
 import { ActionMenu } from "@/components/shared/action-menu";
@@ -11,10 +8,11 @@ import { TagChip, tagColors } from "@/components/shared/tag-chip";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { DocType, MaterialKind } from "@/generated/prisma/enums";
-import type { RequirementLite } from "@/features/tasks/components/types";
 import { Input } from "@/components/ui/input";
+import type { RequirementLite } from "@/features/tasks/components/types";
 import { useAction } from "@/hooks/use-action";
+import type { DocType, MaterialKind } from "@/lib/enums";
+import { Link } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 

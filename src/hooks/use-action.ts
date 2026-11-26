@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -12,7 +10,7 @@ type Options<T> = {
 };
 
 /**
- * 在客户端调用 Server Action 的统一封装：
+ * 在组件中调用写操作（各模块 actions.ts 导出的函数）的统一封装：
  * 管理提交中状态、字段错误，并在失败时用 toast 提示（有字段错误时由表单就地展示）。
  */
 export function useAction<A extends unknown[], T>(

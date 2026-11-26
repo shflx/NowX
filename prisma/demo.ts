@@ -2,12 +2,13 @@
 // 运行：pnpm db:demo（只在空库或尚无演示项目时执行；所有日期相对「今天」生成）
 import "dotenv/config";
 
+// 密码哈希与线上 PasswordHash 使用相同的 Argon2id 参数（库的默认值 m=19456, t=2, p=1）
+import { hash as hashPassword } from "@node-rs/argon2";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-import { PrismaClient } from "../src/generated/prisma/client";
-import type { DocType, TaskPriority, TaskStatus } from "../src/generated/prisma/enums";
+import { PrismaClient } from "./generated/client";
+import type { DocType, TaskPriority, TaskStatus } from "./generated/enums";
 import { addDays, fromDateString, todayIn } from "../src/lib/dates";
-import { hashPassword } from "../src/server/auth/password";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 

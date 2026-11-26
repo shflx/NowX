@@ -1,20 +1,28 @@
-import "server-only";
-
-import type { Prisma } from "@/generated/prisma/client";
-import { requirementCode } from "@/lib/format";
+import { OPEN_TASK_STATUSES } from "@/lib/constants";
 import { toDateString } from "@/lib/dates";
-import { appConfig, today } from "@/server/config";
 import { db } from "@/server/db";
+import { jsonArrayFrom, jsonObjectFrom } from "@/server/db/json";
 
-import { burndown, countByStatus, summarize, timeline } from "./stats";
+import { countByStatus, summarize } from "./stats";
 
-/** 项目的全部周期及各自的进度 */
-export async function listCycles(projectId: string, project?: Prisma.ProjectWhereInput) {
-  const cycles = await db.cycle.findMany({
-    where: { projectId, project },
-    orderBy: { startDate: "asc" },
-    include: { tasks: { where: { projectId, parentId: null }, select: { status: true } } },
-  });
+/** 项目的全部周期及各自的进度（按顶层任务统计） */
+export async function listCycles(projectId: string) {
+  const cycles = await db
+    .selectFrom("Cycle as c")
+    .selectAll("c")
+    .select((eb) => [
+      jsonArrayFrom(
+        eb
+          .selectFrom("Task as t")
+          .select("t.status")
+          .whereRef("t.cycleId", "=", "c.id")
+          .where("t.projectId", "=", projectId)
+          .where("t.parentId", "is", null),
+      ).as("tasks"),
+    ])
+    .where("c.projectId", "=", projectId)
+    .orderBy("c.startDate", "asc")
+    .execute();
 
   return cycles.map(({ tasks, ...cycle }) => {
     const counts = countByStatus(tasks);
@@ -30,71 +38,77 @@ export async function listCycles(projectId: string, project?: Prisma.ProjectWher
 
 export type CycleListItem = Awaited<ReturnType<typeof listCycles>>[number];
 
-/** 周期详情：燃尽图、成员负载、需求进度、顺延任务 */
-export async function getCycleDetail(cycle: CycleListItem) {
-  const [tasks, carried] = await Promise.all([
-    db.task.findMany({
-      where: { cycleId: cycle.id, parentId: null },
-      select: {
-        status: true,
-        createdAt: true,
-        completedAt: true,
-        assignee: { select: { id: true, name: true, color: true } },
-        requirement: { select: { id: true, number: true, title: true } },
-      },
-    }),
-    db.task.findMany({
-      where: { carriedFromCycleId: cycle.id, parentId: null },
-      orderBy: { number: "asc" },
-      select: { id: true, number: true, title: true, status: true, cycle: { select: { name: true } } },
-    }),
+/** 周期详情的原始数据：顶层任务、顺延出去的任务、本期需求，统计在页面中按当天日期计算 */
+export async function getCycleDetailData(cycle: { id: string; status: string }) {
+  const [tasks, carried, requirements, unfinished] = await Promise.all([
+    db
+      .selectFrom("Task as t")
+      .select((eb) => [
+        "t.status",
+        "t.createdAt",
+        "t.completedAt",
+        jsonObjectFrom(eb.selectFrom("User as u").select(["u.id", "u.name", "u.color"]).whereRef("u.id", "=", "t.assigneeId")).as(
+          "assignee",
+        ),
+      ])
+      .where("t.cycleId", "=", cycle.id)
+      .where("t.parentId", "is", null)
+      .execute(),
+    db
+      .selectFrom("Task as t")
+      .select((eb) => [
+        "t.id",
+        "t.number",
+        "t.title",
+        "t.status",
+        jsonObjectFrom(eb.selectFrom("Cycle as c").select("c.name").whereRef("c.id", "=", "t.cycleId")).as("cycle"),
+      ])
+      .where("t.carriedFromCycleId", "=", cycle.id)
+      .where("t.parentId", "is", null)
+      .orderBy("t.number", "asc")
+      .execute(),
+    // 本期需求：计划在本周期交付的需求，加上从本周期顺延出去的需求（用于周期回顾）
+    db
+      .selectFrom("Requirement as r")
+      .select((eb) => [
+        "r.id",
+        "r.number",
+        "r.title",
+        "r.status",
+        "r.cycleId",
+        "r.carriedFromCycleId",
+        jsonObjectFrom(eb.selectFrom("Cycle as c").select("c.name").whereRef("c.id", "=", "r.carriedFromCycleId")).as(
+          "carriedFrom",
+        ),
+        jsonObjectFrom(eb.selectFrom("Cycle as c").select("c.name").whereRef("c.id", "=", "r.cycleId")).as("cycle"),
+        jsonArrayFrom(
+          eb.selectFrom("Task as t").select("t.status").whereRef("t.requirementId", "=", "r.id").where("t.parentId", "is", null),
+        ).as("tasks"),
+      ])
+      .where((eb) => eb.or([eb("r.cycleId", "=", cycle.id), eb("r.carriedFromCycleId", "=", cycle.id)]))
+      .orderBy("r.number", "asc")
+      .execute(),
+    // 结束周期时需要处理的未完成顶层任务
+    cycle.status === "ACTIVE"
+      ? db
+          .selectFrom("Task as t")
+          .select((eb) => [
+            "t.id",
+            "t.number",
+            "t.title",
+            "t.status",
+            jsonObjectFrom(eb.selectFrom("User as u").select(["u.name", "u.color"]).whereRef("u.id", "=", "t.assigneeId")).as(
+              "assignee",
+            ),
+          ])
+          .where("t.cycleId", "=", cycle.id)
+          .where("t.parentId", "is", null)
+          .where("t.status", "in", OPEN_TASK_STATUSES)
+          .orderBy("t.number", "asc")
+          .execute()
+      : [],
   ]);
-
-  const now = today();
-  const time = timeline(cycle.startDate, cycle.endDate, now);
-  const points =
-    cycle.status === "PLANNED"
-      ? []
-      : burndown({ start: cycle.startDate, end: cycle.endDate, today: now, timeZone: appConfig.timeZone, tasks });
-
-  // 按负责人汇总
-  const byMember = new Map<string, { user: { id: string; name: string; color: string }; tasks: typeof tasks }>();
-  for (const t of tasks) {
-    if (!t.assignee) continue;
-    const entry = byMember.get(t.assignee.id) ?? { user: t.assignee, tasks: [] };
-    entry.tasks.push(t);
-    byMember.set(t.assignee.id, entry);
-  }
-  const members = [...byMember.values()]
-    .map(({ user, tasks }) => ({ user, counts: countByStatus(tasks), ...summarize(countByStatus(tasks)) }))
-    .filter((m) => m.total > 0)
-    .sort((a, b) => b.total - a.total);
-
-  // 本期需求：计划在本周期交付的需求，加上从本周期顺延出去的需求（用于周期回顾）
-  const planned = await db.requirement.findMany({
-    where: { OR: [{ cycleId: cycle.id }, { carriedFromCycleId: cycle.id }] },
-    orderBy: { number: "asc" },
-    select: {
-      id: true,
-      number: true,
-      title: true,
-      status: true,
-      cycleId: true,
-      carriedFromCycleId: true,
-      carriedFrom: { select: { name: true } },
-      cycle: { select: { name: true } },
-      tasks: { where: { parentId: null }, select: { status: true } },
-    },
-  });
-  const requirements = planned.map(({ tasks, ...r }) => ({
-    ...r,
-    code: requirementCode(r.number),
-    ...summarize(countByStatus(tasks)),
-    /** 已从本周期顺延到其他周期 */
-    carriedOut: r.cycleId !== cycle.id,
-    /** 由其他周期顺延进本周期 */
-    carriedIn: r.cycleId === cycle.id && r.carriedFromCycleId !== null && r.carriedFromCycleId !== cycle.id,
-  }));
-
-  return { time, points, members, requirements, carried };
+  return { tasks, carried, requirements, unfinished };
 }
+
+export type CycleDetailData = Awaited<ReturnType<typeof getCycleDetailData>>;

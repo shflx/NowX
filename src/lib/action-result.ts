@@ -1,4 +1,4 @@
-// Server Action 的统一返回结构与错误类型（前后端共用，不依赖服务端模块）
+// 写操作的统一返回结构与错误类型（前后端共用，不依赖服务端模块）
 import { z } from "zod";
 
 export type ActionResult<T = undefined> =

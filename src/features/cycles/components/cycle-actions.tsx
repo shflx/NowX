@@ -1,12 +1,10 @@
-"use client";
-
 import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 
 import { ActionMenu } from "@/components/shared/action-menu";
 import { Button } from "@/components/ui/button";
-import type { TaskStatus } from "@/generated/prisma/enums";
 import { useAction } from "@/hooks/use-action";
+import type { TaskStatus } from "@/lib/enums";
 
 import { deleteCycle, startCycle } from "../actions";
 import { CycleFormDialog } from "./cycle-form-dialog";

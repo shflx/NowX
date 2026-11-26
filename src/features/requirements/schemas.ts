@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { RequirementStatus } from "@/generated/prisma/enums";
+import { RequirementStatus } from "@/lib/enums";
 
 export const docLinkSchema = z.object({
   url: z.url({ protocol: /^https?$/, error: "链接需要以 http:// 或 https:// 开头" }),

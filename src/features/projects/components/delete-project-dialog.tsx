@@ -1,6 +1,3 @@
-"use client";
-
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { FormField } from "@/components/shared/form-field";
@@ -9,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
+import { useRouter } from "@/lib/navigation";
 
 import { deleteProject } from "../actions";
 

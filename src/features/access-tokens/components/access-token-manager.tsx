@@ -1,5 +1,3 @@
-"use client";
-
 import { CopyIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -14,10 +12,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAction } from "@/hooks/use-action";
 import { formatDateTime } from "@/lib/dates";
 
-import { createMyAccessToken, type listMyAccessTokens, revokeMyAccessToken } from "../actions";
+import { createMyAccessToken, revokeMyAccessToken } from "../actions";
+import type { AccessTokenRow } from "../queries";
 import { McpConfig } from "./mcp-config";
 
-type Props = { tokens: Awaited<ReturnType<typeof listMyAccessTokens>>; mcpUrl: string; timeZone: string };
+type Props = { tokens: AccessTokenRow[]; mcpUrl: string; timeZone: string };
 
 export function AccessTokenManager({ tokens, mcpUrl, timeZone }: Props) {
   const [name, setName] = useState("");

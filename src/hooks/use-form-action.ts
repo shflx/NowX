@@ -1,5 +1,3 @@
-"use client";
-
 import { type FormEvent, startTransition, useActionState } from "react";
 
 import type { ActionResult } from "@/lib/action-result";

@@ -1,5 +1,3 @@
-"use client";
-
 import {
   ChevronUpIcon,
   CircleCheckBigIcon,
@@ -16,13 +14,12 @@ import {
   KeyRoundIcon,
   FolderCogIcon,
 } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useRef, type ComponentType, type ReactNode } from "react";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { logout } from "@/features/auth/actions";
+import { Link, usePathname } from "@/lib/navigation";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +42,6 @@ function NavItem({ href, icon: Icon, children, count, highlight, exact }: NavIte
   return (
     <Link
       href={href}
-      prefetch={false}
       aria-current={active ? "page" : undefined}
       className={cn(
         "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",

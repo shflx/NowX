@@ -2,10 +2,11 @@
 // 运行：pnpm db:seed（读取 .env 中的 SEED_ADMIN_* 变量）
 import "dotenv/config";
 
+// 密码哈希与线上 PasswordHash 使用相同的 Argon2id 参数（库的默认值 m=19456, t=2, p=1）
+import { hash as hashPassword } from "@node-rs/argon2";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-import { PrismaClient } from "../src/generated/prisma/client";
-import { hashPassword } from "../src/server/auth/password";
+import { PrismaClient } from "./generated/client";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 

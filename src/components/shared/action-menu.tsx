@@ -1,5 +1,3 @@
-"use client";
-
 import { EllipsisIcon } from "lucide-react";
 import { type ComponentType, Fragment, useState } from "react";
 

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 
 /** 监听元素宽度（图表按实际宽度绘制，避免缩放导致文字过小） */

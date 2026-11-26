@@ -1,5 +1,3 @@
-"use client";
-
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";

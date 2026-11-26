@@ -1,5 +1,3 @@
-"use client";
-
 import { UploadIcon } from "lucide-react";
 import { type ComponentProps, useState } from "react";
 

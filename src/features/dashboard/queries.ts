@@ -1,117 +1,118 @@
-import "server-only";
-
-import { behindPlan, countByStatus, summarize, timeline } from "@/features/cycles/stats";
-import { isOverdue } from "@/features/tasks/serialize";
 import { OPEN_TASK_STATUSES } from "@/lib/constants";
-import { formatRelative, toDateString } from "@/lib/dates";
-import { taskCode } from "@/lib/format";
 import type { CurrentUser } from "@/server/auth/dal";
-import { appConfig, today } from "@/server/config";
 import { db } from "@/server/db";
+import { jsonArrayFrom, jsonObjectFrom } from "@/server/db/json";
 
 /**
  * 工作台数据（跨项目）：我的任务、进行中的周期、待我回答、置顶公告、最近动态。
- * 范围是「我参与的、未归档的项目」。
+ * 范围是「我参与的、未归档的项目」。与日期相关的统计在页面中按当天计算。
  */
-export async function getDashboard(user: CurrentUser) {
-  const projectWhere = { archivedAt: null, members: { some: { userId: user.id } } };
-  const now = today();
-  const clock = new Date();
+export async function getDashboardData(user: CurrentUser) {
+  const myProjects = db
+    .selectFrom("Project as p")
+    .innerJoin("ProjectMember as m", "m.projectId", "p.id")
+    .select("p.id")
+    .where("p.archivedAt", "is", null)
+    .where("m.userId", "=", user.id);
 
   const [tasks, topics, cycles, pinned, activities] = await Promise.all([
-    db.task.findMany({
-      where: {
-        assigneeId: user.id,
-        status: { in: OPEN_TASK_STATUSES },
-        cycle: { status: "ACTIVE" },
-        project: projectWhere,
-      },
-      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { number: "asc" }],
-      select: {
-        id: true,
-        number: true,
-        title: true,
-        status: true,
-        priority: true,
-        dueDate: true,
-        project: { select: { id: true, key: true, name: true } },
-      },
-    }),
-    db.topic.findMany({
-      where: { assigneeId: user.id, status: "OPEN", project: projectWhere },
-      orderBy: { lastActivityAt: "desc" },
-      select: { id: true, title: true, createdAt: true, author: { select: { name: true, color: true } }, project: { select: { key: true, name: true } } },
-    }),
-    db.cycle.findMany({
-      where: { status: "ACTIVE", project: projectWhere },
-      orderBy: { project: { createdAt: "asc" } },
-      select: {
-        id: true,
-        name: true,
-        startDate: true,
-        endDate: true,
-        project: { select: { key: true, name: true, color: true } },
-        tasks: { where: { parentId: null }, select: { status: true } },
-      },
-    }),
-    db.announcement.findMany({
-      where: { pinned: true, project: projectWhere },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, title: true, createdAt: true, author: { select: { name: true } }, project: { select: { key: true } } },
-    }),
-    db.activity.findMany({
-      where: { project: projectWhere },
-      orderBy: { createdAt: "desc" },
-      take: 6,
-      select: {
-        id: true,
-        verb: true,
-        target: true,
-        href: true,
-        createdAt: true,
-        actor: { select: { name: true, color: true } },
-        project: { select: { name: true } },
-      },
-    }),
+    db
+      .selectFrom("Task as t")
+      .innerJoin("Cycle as c", "c.id", "t.cycleId")
+      .select((eb) => [
+        "t.id",
+        "t.number",
+        "t.title",
+        "t.status",
+        "t.priority",
+        "t.dueDate",
+        jsonObjectFrom(eb.selectFrom("Project as p").select(["p.id", "p.key", "p.name"]).whereRef("p.id", "=", "t.projectId"))
+          .$notNull()
+          .as("project"),
+      ])
+      .where("t.assigneeId", "=", user.id)
+      .where("t.status", "in", OPEN_TASK_STATUSES)
+      .where("c.status", "=", "ACTIVE")
+      .where("t.projectId", "in", myProjects)
+      .orderBy("t.dueDate", (ob) => ob.asc().nullsLast())
+      .orderBy("t.number", "asc")
+      .execute(),
+    db
+      .selectFrom("Topic as o")
+      .select((eb) => [
+        "o.id",
+        "o.title",
+        "o.createdAt",
+        jsonObjectFrom(eb.selectFrom("User as u").select(["u.name", "u.color"]).whereRef("u.id", "=", "o.authorId"))
+          .$notNull()
+          .as("author"),
+        jsonObjectFrom(eb.selectFrom("Project as p").select(["p.key", "p.name"]).whereRef("p.id", "=", "o.projectId"))
+          .$notNull()
+          .as("project"),
+      ])
+      .where("o.assigneeId", "=", user.id)
+      .where("o.status", "=", "OPEN")
+      .where("o.projectId", "in", myProjects)
+      .orderBy("o.lastActivityAt", "desc")
+      .execute(),
+    db
+      .selectFrom("Cycle as c")
+      .innerJoin("Project as p", "p.id", "c.projectId")
+      .select((eb) => [
+        "c.id",
+        "c.name",
+        "c.startDate",
+        "c.endDate",
+        jsonObjectFrom(eb.selectFrom("Project as x").select(["x.key", "x.name", "x.color"]).whereRef("x.id", "=", "c.projectId"))
+          .$notNull()
+          .as("project"),
+        jsonArrayFrom(
+          eb.selectFrom("Task as t").select("t.status").whereRef("t.cycleId", "=", "c.id").where("t.parentId", "is", null),
+        ).as("tasks"),
+      ])
+      .where("c.status", "=", "ACTIVE")
+      .where("c.projectId", "in", myProjects)
+      .orderBy("p.createdAt", "asc")
+      .execute(),
+    db
+      .selectFrom("Announcement as a")
+      .select((eb) => [
+        "a.id",
+        "a.title",
+        "a.createdAt",
+        jsonObjectFrom(eb.selectFrom("User as u").select("u.name").whereRef("u.id", "=", "a.authorId"))
+          .$notNull()
+          .as("author"),
+        jsonObjectFrom(eb.selectFrom("Project as p").select("p.key").whereRef("p.id", "=", "a.projectId"))
+          .$notNull()
+          .as("project"),
+      ])
+      .where("a.pinned", "=", true)
+      .where("a.projectId", "in", myProjects)
+      .orderBy("a.createdAt", "desc")
+      .execute(),
+    db
+      .selectFrom("Activity as a")
+      .select((eb) => [
+        "a.id",
+        "a.verb",
+        "a.target",
+        "a.href",
+        "a.createdAt",
+        jsonObjectFrom(eb.selectFrom("User as u").select(["u.name", "u.color"]).whereRef("u.id", "=", "a.actorId"))
+          .$notNull()
+          .as("actor"),
+        jsonObjectFrom(eb.selectFrom("Project as p").select("p.name").whereRef("p.id", "=", "a.projectId"))
+          .$notNull()
+          .as("project"),
+      ])
+      .where("a.projectId", "in", myProjects)
+      .orderBy("a.createdAt", "desc")
+      .limit(6)
+      .execute(),
   ]);
 
-  const myTasks = tasks.map((t) => {
-    const due = t.dueDate ? toDateString(t.dueDate) : null;
-    return {
-      id: t.id,
-      number: t.number,
-      code: taskCode(t.project.key, t.number),
-      title: t.title,
-      status: t.status,
-      priority: t.priority,
-      due,
-      overdue: isOverdue(due, t.status, now),
-      project: t.project,
-    };
-  });
-
-  const activeCycles = cycles.map(({ tasks, ...c }) => {
-    const counts = countByStatus(tasks);
-    const stats = summarize(counts);
-    const start = toDateString(c.startDate);
-    const end = toDateString(c.endDate);
-    return {
-      ...c,
-      startDate: start,
-      endDate: end,
-      counts,
-      ...stats,
-      daysLeft: timeline(start, end, now).daysLeft,
-      behind: behindPlan(stats.total, stats.remaining, start, end, now),
-    };
-  });
-
-  return {
-    today: now,
-    myTasks,
-    waiting: topics.map((t) => ({ ...t, time: formatRelative(t.createdAt, appConfig.timeZone, clock) })),
-    activeCycles,
-    pinned,
-    activities: activities.map((a) => ({ ...a, time: formatRelative(a.createdAt, appConfig.timeZone, clock) })),
-  };
+  return { tasks, topics, cycles, pinned, activities };
 }
+
+export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;

@@ -1,27 +1,33 @@
 import { fileURLToPath } from "node:url";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwind from "@tailwindcss/postcss";
-import { defineConfig } from "vite";
-import vinext from "vinext";
+import react from "@vitejs/plugin-react";
+import { defineConfig, type Plugin } from "vite";
 
-const workers = (file: string) => fileURLToPath(new URL(`./workers/${file}`, import.meta.url));
+// 本地开发时，Hyperdrive 直接连接 .env 中的 DATABASE_URL（CI 中没有 .env，构建不需要）
+try {
+  process.loadEnvFile();
+  process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE ??= process.env.DATABASE_URL;
+} catch {
+  // 没有 .env 时跳过
+}
+
+/** 服务端模块：只能在 Worker 中运行，前端引用时构建直接报错，避免把数据库代码打进浏览器 */
+const SERVER_MODULE =
+  /\/src\/server\/|\/workers\/|\/src\/features\/[^/]+\/(queries|mutations|service|routes)\.ts$|\/src\/features\/assistant\/(providers\/|tools|topic-reply|tool-definition)/;
+
+function serverOnly(): Plugin {
+  return {
+    name: "nowx:server-only",
+    applyToEnvironment: (environment) => environment.name === "client",
+    transform(_code, id) {
+      if (SERVER_MODULE.test(id)) this.error(`前端代码不能引用服务端模块：${id}`);
+    },
+  };
+}
 
 export default defineConfig({
-  define: { "process.env.NOWX_WORKERS_BUILD": JSON.stringify("1") },
+  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   css: { postcss: { plugins: [tailwind()] } },
-  resolve: {
-    alias: {
-      "@/server/storage": workers("storage.ts"),
-      "@/server/events": workers("events-adapter.ts"),
-      "@/components/layout/live-updates": workers("live-updates.tsx"),
-      "@/server/db": workers("database.ts"),
-      "@/server/rate-limit": workers("rate-limit-client.ts"),
-      "@/server/auth/password": workers("password-client.ts"),
-    },
-  },
-  plugins: [
-    // Next.js 的 standalone 产物仅用于现有 Docker 部署。
-    vinext({ nextConfig: {} }),
-    cloudflare({ viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] } }),
-  ],
+  plugins: [react(), cloudflare(), serverOnly()],
 });

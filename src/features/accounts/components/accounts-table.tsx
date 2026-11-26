@@ -1,5 +1,3 @@
-"use client";
-
 import { KeyRoundIcon, PlusIcon, Trash2Icon, UserCheckIcon, UserXIcon } from "lucide-react";
 import { useState } from "react";
 

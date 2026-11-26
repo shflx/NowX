@@ -6,7 +6,7 @@ import type {
   TaskPriority,
   TaskStatus,
   TopicStatus,
-} from "@/generated/prisma/enums";
+} from "@/lib/enums";
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   TODO: "待办",

@@ -1,16 +1,18 @@
-// 密码哈希：使用 Argon2id（OWASP 推荐算法），参数采用库的默认值
-// 注意：本文件不引入 server-only，以便种子脚本复用
-import { hash, verify } from "@node-rs/argon2";
+import { createHash } from "node:crypto";
+
+import { requestContext } from "@/server/context";
+
+// 密码哈希使用 Argon2id，计算量较大，交给 PasswordHash Durable Object 执行，
+// 不占用 Worker 请求的 CPU 时间。按哈希值分散到不同实例。
+
+function hasher(name: string) {
+  return requestContext().env.PASSWORD_HASH.getByName(name);
+}
 
 export function hashPassword(password: string) {
-  return hash(password);
+  return hasher(crypto.randomUUID().slice(0, 2)).hash(password);
 }
 
 export async function verifyPassword(passwordHash: string, password: string) {
-  try {
-    return await verify(passwordHash, password);
-  } catch {
-    // 哈希格式损坏时按校验失败处理，避免把内部错误暴露给登录接口
-    return false;
-  }
+  return hasher(createHash("sha256").update(passwordHash).digest("hex").slice(0, 2)).verify(passwordHash, password);
 }

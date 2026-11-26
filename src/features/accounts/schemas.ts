@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { passwordRule } from "@/features/auth/schemas";
-import { UserRole } from "@/generated/prisma/enums";
+import { UserRole } from "@/lib/enums";
 
 export const accountFieldsSchema = z.object({
   name: z.string().trim().min(1, "请填写姓名").max(20, "姓名不能超过 20 个字"),

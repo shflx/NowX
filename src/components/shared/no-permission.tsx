@@ -1,8 +1,8 @@
 import { ShieldAlertIcon } from "lucide-react";
-import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Link } from "@/lib/navigation";
 
 /** 无权访问提示（成员直接访问管理页面时展示） */
 export function NoPermission({ feature }: { feature: string }) {
