@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { extname, join, relative, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -28,13 +29,15 @@ async function api(path, { body, auth = token } = {}) {
 }
 
 async function uploadAssets() {
+  // 构建产物不一定包含 .assetsignore，存在时才按它排除文件
+  const ignoreFile = join(assets, ".assetsignore");
   const files = execFileSync(
     "git",
     [
       "ls-files",
       "-z",
       "--others",
-      "--exclude-from=" + join(assets, ".assetsignore"),
+      ...(existsSync(ignoreFile) ? ["--exclude-from=" + ignoreFile] : []),
       "--exclude=.assetsignore",
       "--exclude=_headers",
       "--exclude=_redirects",
