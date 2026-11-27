@@ -113,18 +113,24 @@ const jwt = await uploadAssets();
 const source = await version(await latest());
 const { bindings, script_runtime: runtime } = source.resources;
 const assetConfig = runtime.assets;
-// 兼容性标志与静态资源路由（单页应用回退、Worker 优先的路径）随代码发布，取自构建产物；
-// 其余运行配置、变量、密钥及资源关联在控制台管理，由 Cloudflare 在平台内继承。
+// 兼容性标志、静态资源路由（单页应用回退、Worker 优先的路径）与新增的 Durable Object 随代码发布，取自构建产物；
+// 其余运行配置、变量、密钥及已有资源关联在控制台管理，由 Cloudflare 在平台内继承。
 const compatibilityFlags = config.compatibilityFlags ?? [];
 const notFoundHandling = config.assets?.notFoundHandling ?? assetConfig.not_found_handling;
 const runWorkerFirst = config.assets?.runWorkerFirst ?? assetConfig.raw_run_worker_first;
+// 代码中新增的 Durable Object 类及其绑定随代码发布；控制台已有的绑定仍原样继承。
+const exportsConfig = { ...runtime.exports, ...config.exports };
+const existing = new Set(bindings.map((binding) => binding.name));
+const addedBindings = Object.entries(config.env ?? {})
+  .filter(([name, binding]) => binding.type === "durable-object" && !existing.has(name))
+  .map(([name, binding]) => ({ name, type: "durable_object_namespace", class_name: binding.exportName }));
 const metadata = {
   main_module: config.manifest.mainModule,
   compatibility_date: runtime.compatibility_date,
   compatibility_flags: compatibilityFlags,
-  exports: runtime.exports,
-  // CI 只传绑定名称。
-  bindings: bindings.map(({ name, type }) => ({ name, type: type === "assets" ? "assets" : "inherit" })),
+  exports: exportsConfig,
+  // 已有绑定只传名称，由平台继承；新增的 Durable Object 绑定写明类名。
+  bindings: [...bindings.map(({ name, type }) => ({ name, type: type === "assets" ? "assets" : "inherit" })), ...addedBindings],
   assets: {
     jwt,
     config: {
@@ -145,11 +151,21 @@ const candidate = await version(uploaded.id);
 const {
   assets: candidateAssets,
   compatibility_flags: candidateFlags = [],
+  exports: candidateExports,
   ...candidateRuntime
 } = candidate.resources.script_runtime;
-const { assets: _assets, compatibility_flags: _flags, ...inheritedRuntime } = runtime;
+const { assets: _assets, compatibility_flags: _flags, exports: _exports, ...inheritedRuntime } = runtime;
+const added = new Set(addedBindings.map((binding) => binding.name));
+const candidateInherited = candidate.resources.bindings.filter((binding) => !added.has(binding.name));
+const candidateAdded = candidate.resources.bindings.filter((binding) => added.has(binding.name));
 if (
-  !isDeepStrictEqual(sortBindings(candidate.resources.bindings), sortBindings(bindings)) ||
+  !isDeepStrictEqual(sortBindings(candidateInherited), sortBindings(bindings)) ||
+  !addedBindings.every((expected) =>
+    candidateAdded.some(
+      (binding) => binding.name === expected.name && binding.type === expected.type && binding.class_name === expected.class_name,
+    ),
+  ) ||
+  !isDeepStrictEqual(candidateExports, exportsConfig) ||
   !isDeepStrictEqual(candidateRuntime, inheritedRuntime) ||
   !isDeepStrictEqual([...candidateFlags].sort(), [...compatibilityFlags].sort()) ||
   candidateAssets?.not_found_handling !== notFoundHandling ||
