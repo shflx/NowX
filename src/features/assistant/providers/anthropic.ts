@@ -23,6 +23,8 @@ export async function askAnthropic({ config, system, history, tools }: ProviderR
       output_config: { effort: "low" },
       // 被安全策略拒绝时由服务端自动改用默认的备用模型重试
       ...(fallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
+      // 工具循环默认使用服务端会话线程（每轮只发新消息），兼容服务不保存会话，需每轮发送完整历史
+      ...(config.baseURL ? { thread: false as const } : {}),
       max_iterations: MAX_TOOL_ROUNDS,
       system: system.map((text) => ({ type: "text" as const, text })),
       // 不发送 type: "custom"：Claude API 缺省即按自定义工具处理，部分兼容服务（如 DeepSeek）不接受该取值
