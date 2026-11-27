@@ -1,4 +1,3 @@
-import { replyAsAssistant } from "@/features/assistant/topic-reply";
 import { ActionError, parseInput } from "@/lib/action-result";
 import { ASSISTANT_MENTION } from "@/lib/constants";
 import { requirementCode, taskCode } from "@/lib/format";
@@ -7,7 +6,8 @@ import { sharesKeyword } from "@/lib/text";
 import { recordActivity } from "@/server/activity";
 import { type CurrentUser, isAdmin } from "@/server/auth/dal";
 import { appConfig } from "@/server/config";
-import { runInBackground } from "@/server/context";
+import { agentRunner } from "@/server/agent";
+import { requestContext } from "@/server/context";
 import { db } from "@/server/db";
 import { cuid } from "@/server/db/id";
 import { publishProjectChange } from "@/server/events";
@@ -20,10 +20,11 @@ import { replySchema, topicSchema } from "./schemas";
 const canManage = (user: CurrentUser, topic: { authorId: string; assigneeId: string | null }) =>
   topic.authorId === user.id || topic.assigneeId === user.id || isAdmin(user);
 
-/** 正文 @项目助手 时，在响应返回后由助手补充回复 */
+/** 正文 @项目助手 时，在响应返回后由助手补充回复（在 AgentRunner 中执行，不占用本次请求的 CPU） */
 function maybeSummonAssistant(topicId: string, text: string) {
   if (appConfig.assistantEnabled && text.includes(ASSISTANT_MENTION)) {
-    runInBackground(() => replyAsAssistant(topicId));
+    const { env, waitUntil } = requestContext();
+    waitUntil(agentRunner(env).replyToTopic(topicId));
   }
 }
 

@@ -61,7 +61,7 @@ export function deleteCookie(name: string) {
 }
 
 /**
- * 响应发送后执行的任务（如累计浏览数、助手自动回复）。
+ * 响应发送后执行的轻量任务（如累计浏览数）。
  * 请求结束时连接池已释放，后台任务使用独立的数据库连接。
  */
 export function runInBackground(task: () => Promise<unknown>) {

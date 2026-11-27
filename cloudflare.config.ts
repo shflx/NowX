@@ -17,6 +17,7 @@ export default defineConfig({
     // 部署代码时由 Workers 继承控制台管理的运行时变量和密钥（见 workers/publish.mjs）。
     unsafe: { metadata: { keep_bindings: ["plain_text", "json", "secret_text", "secret_key"] } },
     exports: {
+      AgentRunner: exports.durableObject({ storage: "sqlite" }),
       AttachmentQuota: exports.durableObject({ storage: "sqlite" }),
       LiveEvents: exports.durableObject({ storage: "sqlite" }),
       PasswordHash: exports.durableObject({ storage: "sqlite" }),
@@ -30,6 +31,7 @@ export default defineConfig({
       ASSETS: bindings.assets(),
       ATTACHMENTS: bindings.r2({ name: "nowx-attachments" }),
       ATTACHMENT_QUOTA: bindings.durableObject({ worker: "nowx", exportName: "AttachmentQuota" }),
+      AGENT_RUNNER: bindings.durableObject({ worker: "nowx", exportName: "AgentRunner" }),
       // 运行时配置：线上在控制台维护（部署时继承），本地开发从 .dev.vars 读取
       APP_TIMEZONE: bindings.secret(),
       APP_URL: bindings.secret(),

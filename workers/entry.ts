@@ -1,16 +1,19 @@
 import { LAST_PROJECT_COOKIE, SESSION_COOKIE } from "../src/lib/cookies";
-import { app } from "../src/server/api/app";
+import { agentRunner } from "../src/server/agent";
+import { handleApi } from "../src/server/api/handle";
 import { getCurrentUser } from "../src/server/auth/dal";
-import { requestContext, runWithContext } from "../src/server/context";
+import { runWithContext } from "../src/server/context";
 import { db } from "../src/server/db";
 import { projectChannel, userChannel } from "../src/server/event-channels";
 import { canAccessProject } from "../src/server/permissions";
 
+import type { AgentRunner } from "./agent-runner";
 import type { AttachmentQuota } from "./attachment-quota";
 import type { LiveEvents } from "./events";
 import type { PasswordHash } from "./password-hash";
 import type { RateLimit } from "./rate-limit";
 
+export { AgentRunner } from "./agent-runner";
 export { AttachmentQuota } from "./attachment-quota";
 export { LiveEvents } from "./events";
 export { PasswordHash } from "./password-hash";
@@ -25,11 +28,14 @@ interface WorkerEnv {
   RATE_LIMIT: DurableObjectNamespace<RateLimit>;
   PASSWORD_HASH: DurableObjectNamespace<PasswordHash>;
   ATTACHMENT_QUOTA: DurableObjectNamespace<AttachmentQuota>;
+  AGENT_RUNNER: DurableObjectNamespace<AgentRunner>;
 }
 
 const PUBLIC_PATHS = ["/login"];
 /** 不需要会话 Cookie 的接口：登录，以及使用 Bearer 令牌的远程 MCP 入口 */
 const PUBLIC_APIS = ["/api/actions/auth.login", "/api/mcp"];
+/** CPU 开销较大的接口，交给 AgentRunner 执行 */
+const AGENT_APIS = ["/api/mcp", "/api/assistant"];
 
 function hasCookie(request: Request, name: string) {
   return (request.headers.get("cookie") ?? "").split(";").some((part) => part.trim().startsWith(`${name}=`));
@@ -80,15 +86,6 @@ async function connectEvents(request: Request, env: WorkerEnv) {
   return env.LIVE_EVENTS.getByName(channel).fetch(new Request(request.url, { headers: { Upgrade: "websocket" } }));
 }
 
-/** 把请求过程中写入的 Cookie 附加到响应上 */
-function withCookies(response: Response) {
-  const { cookies } = requestContext();
-  if (cookies.length === 0) return response;
-  const result = new Response(response.body, response);
-  for (const cookie of cookies) result.headers.append("Set-Cookie", cookie);
-  return result;
-}
-
 export default {
   async fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext) {
     const url = new URL(request.url);
@@ -97,10 +94,10 @@ export default {
     if (!PUBLIC_APIS.includes(url.pathname) && !hasCookie(request, SESSION_COOKIE))
       return Response.json({ error: "未登录" }, { status: 401 });
 
-    const context = { request, env, waitUntil: (task: Promise<unknown>) => ctx.waitUntil(task) };
-    return runWithContext(context, async () => {
-      if (url.pathname === "/api/events") return connectEvents(request, env);
-      return withCookies(await app.fetch(request, env, ctx));
-    });
+    if (AGENT_APIS.includes(url.pathname)) return agentRunner(env).fetch(request);
+
+    const waitUntil = (task: Promise<unknown>) => ctx.waitUntil(task);
+    if (url.pathname === "/api/events") return runWithContext({ request, env, waitUntil }, () => connectEvents(request, env));
+    return handleApi(request, env, waitUntil);
   },
 } satisfies ExportedHandler<WorkerEnv>;

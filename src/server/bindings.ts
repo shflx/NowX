@@ -22,6 +22,8 @@ export interface Bindings {
     get(key: string): Promise<{ size: number; body: ReadableStream } | null>;
     delete(key: string): Promise<void>;
   };
+  /** 执行 MCP 与项目助手（见 workers/agent-runner.ts） */
+  AGENT_RUNNER: Stub<{ fetch(request: Request): Promise<Response>; replyToTopic(topicId: string): Promise<void> }>;
   ATTACHMENT_QUOTA: Stub<{
     reserve(key: string, size: number): Promise<"ok" | "capacity" | "daily">;
     allowRead(): Promise<boolean>;

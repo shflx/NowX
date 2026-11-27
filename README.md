@@ -8,11 +8,11 @@
 
 - 前端：React 19 单页应用（React Router + TanStack Query）· Tailwind CSS 4 + shadcn/ui，构建产物作为静态资源发布
 - 接口：Hono · Kysely（`pg` 驱动经 Hyperdrive 连接 PostgreSQL）· Zod
-- 平台能力：Durable Objects（实时推送、限流、密码哈希、附件配额）· R2（附件）
+- 平台能力：Durable Objects（实时推送、限流、密码哈希、附件配额，以及执行 MCP 与项目助手的 AgentRunner）· R2（附件）
 - 数据库结构与迁移：Prisma（schema 与 migrate，运行时不使用 Prisma Client）
 - 测试：Vitest + Playwright；项目助手支持 Claude API 或 OpenAI 兼容接口
 
-免费计划下每个请求的 CPU 时间上限为 10ms，因此页面不做服务端渲染：页面外壳是静态资源，数据由 `/api` 的轻量接口提供，嵌套数据由 PostgreSQL 组装为 JSON。
+免费计划下每个请求的 CPU 时间上限为 10ms，因此页面不做服务端渲染：页面外壳是静态资源，数据由 `/api` 的轻量接口提供；每个请求只用一个数据库连接，页面的查询合并为一条 SQL，嵌套数据由 PostgreSQL 组装为 JSON。MCP 与项目助手的 SDK 开销较大，在 Durable Object（AgentRunner）中执行。
 
 ## 本地开发
 
@@ -79,10 +79,11 @@ tests/e2e/           Playwright 端到端测试
 - 接口统一在服务端完成鉴权：页面数据接口用 `requireProjectByKey`，写操作用 `requireProjectAccess` / `requireAdmin`。
 - 写操作放在各模块的 `mutations.ts`（只导出写操作），通过 `POST /api/actions/<模块>.<函数>` 调用，返回统一的 `ActionResult`；前端在 `actions.ts` 中用 `action()` 声明调用入口。
 - 前端不能引用服务端模块（`src/server`、`workers` 及各模块的 queries / mutations / service / routes），构建时会报错；需要的类型用 `import type` 引入。
+- 页面数据接口把互不依赖的查询合并为一条 SQL（`db.selectNoFrom` + `@/server/db/json`），各模块 `queries.ts` 返回查询供合并；JSON 中的 date 列用 `jsonDate` 转换。
 - 数据库中 `id` 与 `updatedAt` 没有默认值，插入时用 `cuid()` 生成主键，更新 User / Project / Requirement / Task 时写入 `updatedAt`。
 - 数据变更后调用 `publishProjectChange`，在线成员的页面会通过 WebSocket 自动刷新。
 - 进度统计只按顶层任务计数，相关纯函数在 `src/features/cycles/stats.ts`（有单元测试）。
 
 ## 部署
 
-推送到 `prod` 分支后由 GitHub Actions 检查、构建并发布到 Cloudflare Workers（`workers/publish.mjs`）。变量、密钥与资源绑定在 Cloudflare 控制台维护，发布时继承；兼容性标志与静态资源路由（单页应用回退、Worker 优先的路径）随代码发布。数据库迁移需在发布前对线上数据库执行 `pnpm db:deploy`。
+推送到 `prod` 分支后由 GitHub Actions 检查、构建并发布到 Cloudflare Workers（`workers/publish.mjs`）。变量、密钥与已有资源绑定在 Cloudflare 控制台维护，发布时继承；兼容性标志、静态资源路由（单页应用回退、Worker 优先的路径）与新增的 Durable Object 随代码发布。数据库迁移需在发布前对线上数据库执行 `pnpm db:deploy`。

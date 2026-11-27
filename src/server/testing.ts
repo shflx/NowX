@@ -49,6 +49,10 @@ export function testBindings(connectionString: string): Bindings {
       get: async () => null,
       delete: async () => {},
     },
+    // 测试中不调用大模型与 MCP 执行器
+    AGENT_RUNNER: {
+      getByName: () => ({ fetch: async () => new Response(null, { status: 501 }), replyToTopic: async () => {} }),
+    },
     ATTACHMENT_QUOTA: {
       getByName: () => ({ reserve: async () => "ok", allowRead: async () => true, release: async () => {} }),
     },
