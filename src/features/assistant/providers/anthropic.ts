@@ -25,7 +25,8 @@ export async function askAnthropic({ config, system, history, tools }: ProviderR
       ...(fallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
       max_iterations: MAX_TOOL_ROUNDS,
       system: system.map((text) => ({ type: "text" as const, text })),
-      tools: tools.map((tool) => betaZodTool(tool)),
+      // 不发送 type: "custom"：Claude API 缺省即按自定义工具处理，部分兼容服务（如 DeepSeek）不接受该取值
+      tools: tools.map((tool) => Object.assign(betaZodTool(tool), { type: undefined })),
       messages: history,
     });
 
