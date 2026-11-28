@@ -5,8 +5,9 @@ import { queryClient } from "@/lib/query";
 
 import type * as mutations from "./mutations";
 
-const loginAction = action<typeof mutations.login>("auth.login");
-const logoutAction = action<typeof mutations.logout>("auth.logout");
+// 登录、退出后都会清空缓存并跳转，不需要刷新页面数据；退出时刷新会因会话已失效而挂起，拖到下次登录后才继续执行并跳回登录页
+const loginAction = action<typeof mutations.login>("auth.login", { refresh: false });
+const logoutAction = action<typeof mutations.logout>("auth.logout", { refresh: false });
 const changePasswordAction = action<typeof mutations.changePassword>("auth.changePassword");
 
 // 跳转与表单提交处于同一个过渡中：动作需要正常结束，跳转才能完成
